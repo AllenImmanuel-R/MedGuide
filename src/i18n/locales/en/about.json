@@ -1,0 +1,56 @@
+{
+  "title": "About MedGuide",
+  "subtitle": "Your AI-Powered Medical Assistant",
+  "description": "MedGuide is an innovative healthcare platform that combines artificial intelligence with medical expertise to provide personalized health insights, report analysis, and medical recommendations.",
+  "features": {
+    "title": "Key Features",
+    "aiAnalysis": {
+      "title": "AI-Powered Analysis",
+      "description": "Advanced AI algorithms analyze your medical reports and provide detailed insights."
+    },
+    "reportUpload": {
+      "title": "Report Upload",
+      "description": "Upload and securely store your medical reports for comprehensive analysis."
+    },
+    "chatAssistant": {
+      "title": "AI Chat Assistant",
+      "description": "Get instant answers to your health questions from our AI medical assistant."
+    },
+    "clinicFinder": {
+      "title": "Clinic Finder",
+      "description": "Find nearby medical clinics and healthcare providers based on your location."
+    },
+    "multilingual": {
+      "title": "Multilingual Support",
+      "description": "Available in English and Tamil for better accessibility."
+    }
+  },
+  "mission": {
+    "title": "Our Mission",
+    "description": "To democratize healthcare by making advanced medical AI accessible to everyone, regardless of their location or background."
+  },
+  "vision": {
+    "title": "Our Vision",
+    "description": "A world where everyone has access to intelligent healthcare guidance and personalized medical insights."
+  },
+  "team": {
+    "title": "Our Team",
+    "description": "Built by a team of healthcare professionals, AI researchers, and software engineers passionate about improving healthcare outcomes."
+  },
+  "technology": {
+    "title": "Technology",
+    "description": "Powered by cutting-edge AI technologies including natural language processing, computer vision, and machine learning algorithms."
+  },
+  "privacy": {
+    "title": "Privacy & Security",
+    "description": "Your health data is encrypted and secure. We follow strict privacy protocols to protect your personal information."
+  },
+  "contact": {
+    "title": "Contact Us",
+    "email": "Email: support@medguide.com",
+    "phone": "Phone: +1 (555) 123-4567",
+    "address": "Address: 123 Healthcare St, Medical City, MC 12345"
+  },
+  "version": "Version 1.0.0",
+  "lastUpdated": "Last Updated: December 2024"
+}

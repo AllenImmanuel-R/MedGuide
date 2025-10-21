@@ -30,7 +30,7 @@ const TestMedicalReports = () => {
 
   const testBackendConnection = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/v1/ai/test');
+      const response = await fetch('http://localhost:5000/api/v1/ai/suggestions');
       const data = await response.json();
       console.log('Backend test result:', data);
       alert(`Backend Status: ${data.success ? 'Connected' : 'Failed'}\nMessage: ${data.data?.message || data.error}`);

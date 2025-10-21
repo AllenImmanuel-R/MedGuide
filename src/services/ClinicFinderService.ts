@@ -81,7 +81,12 @@ interface MedicalSpecialization {
 class ClinicFinderService {
   private locationService: LocationService;
   private specializations: MedicalSpecialization[] = [];
-  private overpassApiUrl = 'https://overpass-api.de/api/interpreter';
+  private overpassApiUrls = [
+    'https://overpass-api.de/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter',
+    'https://z.overpass-api.de/api/interpreter'
+  ];
+  private currentApiIndex = 0;
   private cache: Map<string, { data: Clinic[], timestamp: number }> = new Map();
   private cacheTimeout = 10 * 60 * 1000; // 10 minutes
 
@@ -92,29 +97,26 @@ class ClinicFinderService {
   }
 
   /**
-   * Build Overpass query for healthcare facilities
+   * Build Overpass query for healthcare facilities with optimized timeout and simpler query
    */
   private buildOverpassQuery(lat: number, lon: number, radius: number = 5000, specialization?: string): string {
     const bbox = this.getBoundingBox(lat, lon, radius);
     
     let amenityFilter = '';
     if (specialization === 'emergency') {
-      amenityFilter = `
-        [amenity~"^(hospital|emergency)$"]
-        [emergency~"^(yes|hospital)$"]`;
+      amenityFilter = `[amenity~"^(hospital)$"][emergency~"^(yes|hospital)$"]`;
     } else {
-      amenityFilter = `
-        [amenity~"^(hospital|clinic|doctors|pharmacy)$"]`;
+      amenityFilter = `[amenity~"^(hospital|clinic|doctors)$"]`;
     }
     
+    // Simplified query with shorter timeout to avoid gateway timeouts
     return `
-      [out:json][timeout:25];
+      [out:json][timeout:15];
       (
         node${amenityFilter}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
         way${amenityFilter}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
-        relation${amenityFilter}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
       );
-      out center meta;
+      out center;
     `;
   }
   
@@ -135,22 +137,62 @@ class ClinicFinderService {
   }
   
   /**
-   * Query Overpass API for healthcare facilities
+   * Query Overpass API with fallback servers and timeout handling
    */
   private async queryOverpassAPI(query: string): Promise<OverpassResponse> {
-    const response = await fetch(this.overpassApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-      },
-      body: `data=${encodeURIComponent(query)}`
-    });
+    let lastError: Error | null = null;
     
-    if (!response.ok) {
-      throw new Error(`Overpass API error: ${response.status} ${response.statusText}`);
+    // Try each API endpoint
+    for (let attempt = 0; attempt < this.overpassApiUrls.length; attempt++) {
+      const apiUrl = this.overpassApiUrls[(this.currentApiIndex + attempt) % this.overpassApiUrls.length];
+      
+      try {
+        console.log(`🔍 Attempting Overpass API: ${apiUrl.split('/')[2]} (attempt ${attempt + 1})`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Success - update current API index for next time
+        this.currentApiIndex = (this.currentApiIndex + attempt) % this.overpassApiUrls.length;
+        console.log(`✅ Overpass API success: ${data.elements?.length || 0} elements found`);
+        
+        return data;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(`Unknown error: ${error}`);
+        console.warn(`❌ Overpass API ${apiUrl.split('/')[2]} failed:`, lastError.message);
+        
+        // If this was an abort (timeout), try next server immediately
+        if (lastError.name === 'AbortError') {
+          continue;
+        }
+        
+        // For other errors, wait a bit before trying next server
+        if (attempt < this.overpassApiUrls.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     }
     
-    return await response.json();
+    // All attempts failed
+    throw new Error(`All Overpass API servers failed. Last error: ${lastError?.message || 'Unknown error'}`);
   }
   
   /**
@@ -547,11 +589,13 @@ class ClinicFinderService {
       console.log('🔍 Overpass query:', query.replace(/\s+/g, ' ').trim());
       
       const response = await this.queryOverpassAPI(query);
-      console.log(`📊 Found ${response.elements.length} healthcare facilities`);
+      console.log(`📊 Found ${response.elements?.length || 0} healthcare facilities`);
       
       // Convert elements to clinics
       const clinics: Clinic[] = [];
-      for (const element of response.elements) {
+      const elements = response.elements || [];
+      
+      for (const element of elements) {
         const clinic = this.convertToClinic(element);
         if (clinic) {
           // Calculate distance
@@ -567,6 +611,11 @@ class ClinicFinderService {
       
       console.log(`✅ Converted ${clinics.length} valid clinics`);
       
+      // If no results and radius is small, suggest expanding
+      if (clinics.length === 0 && maxDistance < 10000) {
+        console.log('💡 No clinics found, consider expanding search radius');
+      }
+      
       // Cache the results
       this.cache.set(cacheKey, {
         data: clinics,
@@ -577,6 +626,20 @@ class ClinicFinderService {
       
     } catch (error) {
       console.error('❌ Overpass API error:', error);
+      
+      // Provide more helpful error messages
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('timeout')) {
+          throw new Error('Search timed out. The servers may be busy. Please try again or expand your search area.');
+        } else if (error.message.includes('504')) {
+          throw new Error('Healthcare data servers are temporarily overloaded. Please try again in a moment.');
+        } else if (error.message.includes('429')) {
+          throw new Error('Too many requests. Please wait a moment before searching again.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Unable to connect to healthcare data servers. Please check your internet connection.');
+        }
+      }
+      
       throw new Error(`Failed to search clinics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

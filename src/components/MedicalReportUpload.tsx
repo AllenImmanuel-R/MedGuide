@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { reportsAPI } from '@/services/api';
 
 interface UploadedReport {
   id: string;
@@ -37,10 +38,7 @@ const MedicalReportUpload: React.FC<MedicalReportUploadProps> = ({ onReportsChan
     'application/pdf',
     'image/jpeg',
     'image/png',
-    'image/jpg',
-    'text/plain',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    'image/jpg'
   ];
 
   const handleFileUpload = useCallback(async (files: FileList) => {
@@ -97,32 +95,14 @@ const MedicalReportUpload: React.FC<MedicalReportUploadProps> = ({ onReportsChan
   const processReport = async (report: UploadedReport, file: File) => {
     updateReportStatus(report.id, 'processing');
     
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('reportId', report.id);
-
     try {
-      const response = await fetch('http://localhost:5000/api/medical-reports/upload', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
+      const result = await reportsAPI.uploadReport(file, { reportId: report.id });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
-      setReports(prev => prev.map(r => 
-        r.id === report.id 
-          ? { 
-              ...r, 
-              status: 'completed',
-              extractedText: result.extractedText,
-              medicalData: result.medicalData
+      setReports(prev => prev.map(r =>
+        r.id === report.id
+          ? {
+              ...r,
+              status: 'completed'
             }
           : r
       ));
@@ -226,12 +206,12 @@ const MedicalReportUpload: React.FC<MedicalReportUploadProps> = ({ onReportsChan
               {t('chat.dragDropFiles')}
             </p>
             <p className="text-sm text-gray-500 mb-4">
-              {t('chat.supportedFormats')}: PDF, JPG, PNG, DOC, DOCX, TXT
+              {t('chat.supportedFormats')}: PDF, JPG, PNG
             </p>
             <input
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+              accept=".pdf,.jpg,.jpeg,.png"
               onChange={handleFileInputChange}
               className="hidden"
               id="file-upload"

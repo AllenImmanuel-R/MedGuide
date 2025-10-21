@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -27,6 +28,9 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
+// Static: serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Route files
 const auth = require('./routes/auth');
 const reports = require('./routes/reports');
@@ -37,13 +41,22 @@ const medicalReports = require('./routes/medicalReports');
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/reports', reports);
 app.use('/api/v1/ai', ai);
-app.use('/api/medical-reports', medicalReports);
+app.use('/api/v1/medical-reports', medicalReports);
 
 // Default route
 app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'MedGuide API is running'
+  });
+});
+
+// Debug auth route
+app.get('/debug/auth', require('./middleware/auth').protect, (req, res) => {
+  res.json({
+    success: true,
+    user: req.user,
+    message: 'You are authenticated'
   });
 });
 

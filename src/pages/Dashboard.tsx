@@ -1,346 +1,399 @@
 import { motion } from "framer-motion";
 import { 
-  Activity, Heart, Brain, Shield, TrendingUp, Users, Calendar, 
-  AlertCircle, FileText, Upload, Stethoscope, MessageCircle,
-  Star, Award, Zap, Plus, MapPin, Languages
+  Brain, FileText, Upload, Stethoscope, MessageCircle,
+  MapPin, ArrowRight, Clock, Loader2
 } from "lucide-react";
-import { EnergeticBackground, GlassCard, SectionHeader, MagicButton } from "@/components/ui/energetic-elements";
-import '../styles/auth.css';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
+import { reportsAPI, aiAPI } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
+import { useState, useEffect } from "react";
+import { clinicFinderService, locationService } from '@/services/clinicServices';
+import type { UserLocation } from '@/services/clinicServices';
 
 const Dashboard = () => {
-  const stats = [
+  const { user } = useAuth();
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [isLoadingClinics, setIsLoadingClinics] = useState(false);
+  const [stats, setStats] = useState([
     {
-      title: "Total Patients",
-      value: "2,847",
-      change: "+12%",
-      icon: Users,
-      color: "text-blue-400",
-      gradient: "from-blue-500 to-cyan-500"
+      title: "Medical Records",
+      value: "0",
+      change: "Loading...",
+      icon: FileText,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50"
     },
     {
-      title: "Active Cases",
-      value: "1,423",
-      change: "+8%",
-      icon: Activity,
-      color: "text-green-400",
-      gradient: "from-green-500 to-emerald-500"
+      title: "Nearby Clinics",
+      value: "0",
+      change: "Getting location...",
+      icon: Stethoscope,
+      color: "text-green-600",
+      bgColor: "bg-green-50"
     },
     {
-      title: "Critical Alerts",
-      value: "23",
-      change: "-15%",
-      icon: AlertCircle,
-      color: "text-red-400",
-      gradient: "from-red-500 to-pink-500"
-    },
-    {
-      title: "Recovery Rate",
-      value: "94.2%",
-      change: "+5%",
-      icon: TrendingUp,
-      color: "text-purple-400",
-      gradient: "from-purple-500 to-pink-500"
-    }
-  ];
-
-  const features = [
-    {
+      title: "Health Consultations",
+      value: "0",
+      change: "Loading...",
       icon: Brain,
-      title: "AI-Powered Diagnosis",
-      description: "Advanced machine learning algorithms analyze symptoms and provide accurate diagnostic suggestions.",
-      gradient: "from-purple-500 to-pink-500"
-    },
-    {
-      icon: Heart,
-      title: "Health Monitoring",
-      description: "Continuous tracking of vital signs and health metrics with real-time alerts.",
-      gradient: "from-red-500 to-rose-500"
-    },
-    {
-      icon: Shield,
-      title: "Secure & Private",
-      description: "Enterprise-grade security ensures your medical data remains confidential and protected.",
-      gradient: "from-green-500 to-emerald-500"
-    },
-    {
-      icon: MessageCircle,
-      title: "AI Health Assistant",
-      description: "Get instant health guidance from our floating AI chatbot, available on every page for quick assistance.",
-      gradient: "from-blue-500 to-cyan-500"
+      color: "text-purple-600",
+      bgColor: "bg-purple-50"
     }
-  ];
+  ]);
+
+  // Get user location automatically on page load
+  useEffect(() => {
+    const getUserLocationAndScanClinics = async () => {
+      try {
+        setIsLoadingLocation(true);
+        
+        // Check if location is cached first
+        const cachedLocation = locationService.getCachedLocation();
+        if (cachedLocation) {
+          console.log('📍 Using cached location:', cachedLocation);
+          setUserLocation(cachedLocation);
+          setIsLoadingLocation(false);
+          return;
+        }
+
+        console.log('📍 Requesting user location...');
+        
+        // Proactively request location permission and get location
+        const location = await locationService.getLocationWithCache();
+        console.log('📍 Location obtained:', location);
+        
+        setUserLocation(location);
+        setIsLoadingLocation(false);
+        
+        // Immediately start scanning for clinics
+        console.log('🏥 Starting clinic scan...');
+        setIsLoadingClinics(true);
+        
+      } catch (error) {
+        console.error('❌ Error getting user location:', error);
+        setIsLoadingLocation(false);
+        
+        // Update stats to show location error
+        setStats(prevStats => prevStats.map((stat, index) => 
+          index === 1 ? {
+            ...stat,
+            value: "0",
+            change: "Location access denied"
+          } : stat
+        ));
+      }
+    };
+
+    // Start location process immediately when component mounts
+    getUserLocationAndScanClinics();
+  }, []);
+
+  // Load dashboard data (medical records and consultations)
+  useEffect(() => {
+    const loadBasicDashboardData = async () => {
+      if (!user) return;
+      
+      try {
+        // Load medical records count
+        const reportsResponse = await reportsAPI.getUploadedReports();
+        const reportsCount = reportsResponse.success ? reportsResponse.data?.length || 0 : 0;
+        
+        // Load AI suggestions for consultation count
+        const suggestionsResponse = await aiAPI.getSuggestions();
+        const consultationsCount = suggestionsResponse.success ? suggestionsResponse.data?.length || 0 : 0;
+        
+        setStats(prevStats => [
+          {
+            ...prevStats[0],
+            value: reportsCount.toString(),
+            change: reportsCount > 0 ? "Ready for travel" : "No records yet"
+          },
+          prevStats[1], // Keep clinic stats as is
+          {
+            ...prevStats[2],
+            value: consultationsCount.toString(),
+            change: "This month"
+          }
+        ]);
+      } catch (error) {
+        console.error('Error loading basic dashboard data:', error);
+      }
+    };
+
+    loadBasicDashboardData();
+  }, [user]);
+
+  // Load nearby clinics when location is available
+  useEffect(() => {
+    const loadNearbyClinics = async () => {
+      if (!userLocation) return;
+      
+      try {
+        setIsLoadingClinics(true);
+        console.log('🔍 Scanning for nearby clinics...');
+        
+        const clinics = await clinicFinderService.findNearbyClinics({
+          maxDistance: 10000, // 10km in meters
+          limit: 50
+        });
+        
+        console.log(`✅ Found ${clinics.length} nearby clinics`);
+        
+        setStats(prevStats => prevStats.map((stat, index) => 
+          index === 1 ? {
+            ...stat,
+            value: clinics.length.toString(),
+            change: `Within 10km`
+          } : stat
+        ));
+        
+        setIsLoadingClinics(false);
+        
+      } catch (error) {
+        console.error('❌ Error loading nearby clinics:', error);
+        setIsLoadingClinics(false);
+        
+        // Fallback to demo data
+        setStats(prevStats => prevStats.map((stat, index) => 
+          index === 1 ? {
+            ...stat,
+            value: "2",
+            change: "Demo data"
+          } : stat
+        ));
+      }
+    };
+
+    if (userLocation && !isLoadingLocation) {
+      loadNearbyClinics();
+    }
+  }, [userLocation, isLoadingLocation]);
 
   const quickActions = [
     { 
-      title: "Upload Reports", 
-      description: "Upload and manage your medical documents", 
-      icon: FileText, 
-      gradient: "from-blue-500 to-cyan-500",
-      href: "/reports"
+      title: "Upload Travel Medical Records", 
+      description: "Store and organize your medical documents for travel", 
+      icon: Upload, 
+      href: "/reports",
+      color: "text-blue-600",
+      bgColor: "bg-blue-50"
     },
     { 
-      title: "Find Clinics", 
-      description: "Locate nearby healthcare facilities", 
+      title: "Find Nearby Hospitals", 
+      description: "Locate healthcare facilities in your current location", 
       icon: MapPin, 
-      gradient: "from-purple-500 to-pink-500",
-      href: "/clinics"
+      href: "/clinics",
+      color: "text-green-600",
+      bgColor: "bg-green-50"
     },
     { 
-      title: "View Analytics", 
-      description: "Access your health reports and analytics", 
-      icon: TrendingUp, 
-      gradient: "from-orange-500 to-yellow-500",
-      href: "/reports"
+      title: "Travel Health Chat", 
+      description: "Get health guidance for your travel destination", 
+      icon: MessageCircle, 
+      href: "/chat",
+      color: "text-purple-600",
+      bgColor: "bg-purple-50"
+    },
+    { 
+      title: "View Medical History", 
+      description: "Access your complete medical records", 
+      icon: FileText, 
+      href: "/reports",
+      color: "text-orange-600",
+      bgColor: "bg-orange-50"
+    }
+  ];
+
+  const recentActivity = [
+    {
+      title: "Travel Vaccination Certificate Uploaded",
+      time: "2 hours ago",
+      type: "upload",
+      status: "completed"
+    },
+    {
+      title: "Health Consultation for Japan Trip",
+      time: "1 day ago",
+      type: "chat",
+      status: "completed"
+    },
+    {
+      title: "Hospital Search in Tokyo",
+      time: "2 days ago",
+      type: "search",
+      status: "completed"
     }
   ];
 
   return (
-    <EnergeticBackground>
-      <div className="min-h-screen px-6 py-8">
-        <div className="max-w-7xl mx-auto space-y-20">
-          
-          {/* Hero Section */}
-          <section className="text-center py-20">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="mb-8"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-6 shadow-2xl"
-              >
-                <motion.div
-                  animate={{ rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Stethoscope className="w-10 h-10 text-white" />
-                </motion.div>
-              </motion.div>
-              
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-                <span className="bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
-                  MedGuide
-                </span>
-              </h1>
-              
-              <motion.p
-                className="text-xl text-white/80 max-w-3xl mx-auto mb-8"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-              >
-                Your intelligent healthcare companion, powered by AI to provide personalized medical guidance and monitoring.
-              </motion.p>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.7 }}
-                className="flex flex-wrap justify-center gap-4"
-              >
-                <div className="w-44">
-                  <Link to="/reports">
-                    <MagicButton size="lg" variant="primary" className="w-full flex items-center justify-center">
-                      Get Started
-                    </MagicButton>
-                  </Link>
-                </div>
-                <div className="w-44">
-                  <Link to="/about">
-                    <MagicButton size="lg" variant="outline" className="w-full flex items-center justify-center">
-                      Learn More
-                    </MagicButton>
-                  </Link>
-                </div>
-              </motion.div>
-            </motion.div>
-          </section>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Welcome to MedGuide
+          </h1>
+          <p className="text-gray-600 text-lg">
+            Your travel health companion - manage medical records, find nearby clinics, and get health guidance anywhere in the world
+          </p>
+        </motion.div>
 
-          {/* Stats Section */}
-          <section>
-            <SectionHeader 
-              title="Real-Time Analytics" 
-              subtitle="Monitor your healthcare metrics with live data and insights"
-            />
+        {/* Stats Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
+        >
+          {stats.map((stat, index) => {
+            const isClinicStat = index === 1;
+            const showLoading = isClinicStat && (isLoadingLocation || isLoadingClinics);
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <motion.div
-                    key={stat.title}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                  >
-                    <GlassCard className="p-6 text-center group">
-                      <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r ${stat.gradient} mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                        <Icon className="w-8 h-8 text-white" />
+            return (
+              <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                        {showLoading && (
+                          <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                        )}
                       </div>
-                      <h3 className="text-sm font-medium text-white/80 mb-2">{stat.title}</h3>
-                      <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                      <p className="text-sm text-green-400">{stat.change} from last month</p>
-                    </GlassCard>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </section>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {isClinicStat && isLoadingLocation ? "Getting location..." :
+                         isClinicStat && isLoadingClinics ? "Scanning clinics..." :
+                         stat.change}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                      <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </motion.div>
 
-          {/* Features Section */}
-          <section>
-            <SectionHeader 
-              title="Powerful Features" 
-              subtitle="Discover what makes MedGuide your ultimate healthcare companion"
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {features.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <motion.div
-                    key={feature.title}
-                    initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.8, delay: index * 0.2 }}
-                    viewport={{ once: true }}
-                  >
-                    <GlassCard className="p-8 h-full group">
-                      <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r ${feature.gradient} mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                        <Icon className="w-8 h-8 text-white" />
-                      </div>
-                      <h3 className="text-2xl font-bold text-white mb-4">{feature.title}</h3>
-                      <p className="text-white/70 leading-relaxed">{feature.description}</p>
-                    </GlassCard>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Quick Actions Section */}
-          <section>
-            <SectionHeader 
-              title="Quick Actions" 
-              subtitle="Access essential features with just one click"
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {quickActions.map((action, index) => {
-                const Icon = action.icon;
-                return (
-                  <motion.div
-                    key={action.title}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                  >
-                    <Link to={action.href}>
-                      <GlassCard className="group cursor-pointer h-32">
-                        <motion.div 
-                          className="p-8 flex items-center space-x-6 h-full"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <div className={`flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-r ${action.gradient} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                            <Icon className="w-8 h-8 text-white" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-2"
+          >
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-900">Quick Actions</CardTitle>
+                <CardDescription>Get started with these common tasks</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {quickActions.map((action, index) => (
+                    <Link key={index} to={action.href}>
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="p-4 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 rounded-lg ${action.bgColor}`}>
+                            <action.icon className={`h-5 w-5 ${action.color}`} />
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-xl font-bold text-white mb-2">{action.title}</h3>
-                            <p className="text-white/70">{action.description}</p>
+                            <h3 className="font-medium text-gray-900">{action.title}</h3>
+                            <p className="text-sm text-gray-600">{action.description}</p>
                           </div>
-                          <Plus className="w-6 h-6 text-white/50 group-hover:text-white group-hover:rotate-90 transition-all duration-300" />
-                        </motion.div>
-                      </GlassCard>
+                          <ArrowRight className="h-4 w-4 text-gray-400" />
+                        </div>
+                      </motion.div>
                     </Link>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </section>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          {/* Achievement Section */}
-          <section>
-            <SectionHeader 
-              title="Your Achievements" 
-              subtitle="Track your progress and celebrate milestones"
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                { title: "Health Warrior", description: "Completed 30 days of consistent monitoring", progress: 85, icon: Award },
-                { title: "Data Champion", description: "Uploaded 50+ medical documents", progress: 65, icon: Upload },
-                { title: "Wellness Expert", description: "Maintained optimal health scores", progress: 92, icon: Zap }
-              ].map((achievement, index) => {
-                const Icon = achievement.icon;
-                return (
-                  <motion.div
-                    key={achievement.title}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.6, delay: index * 0.2 }}
-                    viewport={{ once: true }}
-                  >
-                    <GlassCard className="p-6 text-center h-64 flex flex-col justify-between">
-                      <div>
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 mb-4">
-                          <Icon className="w-8 h-8 text-white" />
+          {/* Recent Activity */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-900">Recent Activity</CardTitle>
+                <CardDescription>Your latest health interactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {recentActivity.map((activity, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Clock className="h-3 w-3 text-gray-400" />
+                          <p className="text-xs text-gray-500">{activity.time}</p>
                         </div>
-                        <h3 className="text-lg font-bold text-white mb-2">{achievement.title}</h3>
-                        <p className="text-white/70 text-sm mb-4">{achievement.description}</p>
                       </div>
-                      <div>
-                        <div className="w-full bg-white/20 rounded-full h-2 mb-2">
-                          <motion.div 
-                            className="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full"
-                            initial={{ width: 0 }}
-                            whileInView={{ width: `${achievement.progress}%` }}
-                            transition={{ duration: 1, delay: index * 0.2 + 0.5 }}
-                            viewport={{ once: true }}
-                          />
-                        </div>
-                        <span className="text-white/60 text-sm">{achievement.progress}% Complete</span>
-                      </div>
-                    </GlassCard>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </section>
+                      <Badge variant="secondary" className="text-xs">
+                        {activity.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
 
-          {/* Language Support Section */}
-          <section className="pb-20">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <GlassCard className="p-8 max-w-md mx-auto">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="p-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500">
-                    <Languages className="w-6 h-6 text-white" />
+        {/* AI Assistant CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-8"
+        >
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white/20 rounded-full">
+                    <Brain className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2">Travel Health Assistant</h3>
+                    <p className="text-blue-100">Get instant health guidance for your travel destination and medical needs</p>
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Multilingual Support</h3>
-                <p className="text-white/70">
-                  Available in multiple languages - Coming soon!
-                </p>
-              </GlassCard>
-            </motion.div>
-          </section>
-
-        </div>
+                <Link to="/chat">
+                  <Button 
+                    size="lg" 
+                    className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg"
+                  >
+                    Start Chat
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </EnergeticBackground>
+    </div>
   );
 };
 
