@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recording Test - MedGuide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .test-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .recording {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .status {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+        }
+        .transcript {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            min-height: 100px;
+            border-left: 5px solid #4CAF50;
+        }
+        .error {
+            background: rgba(244, 67, 54, 0.2);
+            border-left-color: #f44336;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 2em;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🎤 🏥</div>
+        <h1>MedGuide Voice Recording Test</h1>
+        <p>This page tests the voice recording functionality that will be integrated into the MedGuide chat.</p>
+        
+        <div class="feature-list">
+            <div class="feature">
+                <h3>🎙️ Real-time Recording</h3>
+                <p>Uses Web Speech API for live transcription</p>
+            </div>
+            <div class="feature">
+                <h3>🌍 Multi-language</h3>
+                <p>Supports English and Tamil</p>
+            </div>
+            <div class="feature">
+                <h3>⚡ Instant Results</h3>
+                <p>See transcription as you speak</p>
+            </div>
+            <div class="feature">
+                <h3>🔒 Privacy First</h3>
+                <p>Processing happens in your browser</p>
+            </div>
+        </div>
+
+        <h2>Test Voice Recording</h2>
+        
+        <div>
+            <button id="recordBtn" class="test-button">🎤 Start Recording</button>
+            <button id="stopBtn" class="test-button" disabled>🔴 Stop Recording</button>
+            <button id="clearBtn" class="test-button">🗑️ Clear</button>
+        </div>
+
+        <div>
+            <label>
+                Language: 
+                <select id="languageSelect" style="padding: 5px; margin: 5px; border-radius: 5px; border: none;">
+                    <option value="en-US">English (US)</option>
+                    <option value="ta-IN">Tamil (India)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="es-ES">Spanish</option>
+                    <option value="fr-FR">French</option>
+                </select>
+            </label>
+        </div>
+
+        <div id="status" class="status">
+            Status: Ready to test
+        </div>
+
+        <div id="transcript" class="transcript">
+            <strong>Transcription will appear here...</strong>
+            <p><em>Try saying: "Hello, I need help with my health" or "I have been experiencing headaches"</em></p>
+        </div>
+
+        <h3>Test Results</h3>
+        <div id="testResults" class="status">
+            <div id="supportCheck">🔍 Checking speech recognition support...</div>
+            <div id="permissionCheck">🎤 Checking microphone permissions...</div>
+            <div id="functionalityCheck">⚡ Ready to test functionality...</div>
+        </div>
+    </div>
+
+    <script>
+        class VoiceRecordingTester {
+            constructor() {
+                this.recognition = null;
+                this.isRecording = false;
+                this.transcript = '';
+                this.interimTranscript = '';
+                
+                this.recordBtn = document.getElementById('recordBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.languageSelect = document.getElementById('languageSelect');
+                this.status = document.getElementById('status');
+                this.transcriptDiv = document.getElementById('transcript');
+                this.testResults = document.getElementById('testResults');
+                
+                this.init();
+            }
+
+            async init() {
+                console.log('🎤 Initializing Voice Recording Tester...');
+                
+                // Check support
+                this.checkSupport();
+                
+                // Set up event listeners
+                this.recordBtn.addEventListener('click', () => this.startRecording());
+                this.stopBtn.addEventListener('click', () => this.stopRecording());
+                this.clearBtn.addEventListener('click', () => this.clearTranscript());
+                
+                // Check permissions
+                await this.checkPermissions();
+            }
+
+            checkSupport() {
+                const supportCheck = document.getElementById('supportCheck');
+                
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    supportCheck.innerHTML = '❌ Speech recognition not supported in this browser';
+                    supportCheck.style.color = '#f44336';
+                    this.recordBtn.disabled = true;
+                    return false;
+                }
+                
+                supportCheck.innerHTML = '✅ Speech recognition supported';
+                supportCheck.style.color = '#4CAF50';
+                return true;
+            }
+
+            async checkPermissions() {
+                const permissionCheck = document.getElementById('permissionCheck');
+                
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    permissionCheck.innerHTML = '✅ Microphone access granted';
+                    permissionCheck.style.color = '#4CAF50';
+                    
+                    const functionalityCheck = document.getElementById('functionalityCheck');
+                    functionalityCheck.innerHTML = '✅ Ready to test - Click "Start Recording" button';
+                    functionalityCheck.style.color = '#4CAF50';
+                    
+                } catch (error) {
+                    permissionCheck.innerHTML = '⚠️ Microphone access needed - Click "Start Recording" to grant permission';
+                    permissionCheck.style.color = '#ff9800';
+                }
+            }
+
+            setupRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = this.languageSelect.value;
+                this.recognition.maxAlternatives = 1;
+
+                this.recognition.onstart = () => {
+                    console.log('🎙️ Speech recognition started');
+                    this.isRecording = true;
+                    this.updateStatus('Recording... Speak now!', '#4CAF50');
+                    this.recordBtn.disabled = true;
+                    this.recordBtn.className = 'test-button recording';
+                    this.stopBtn.disabled = false;
+                };
+
+                this.recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    if (finalTranscript) {
+                        this.transcript += finalTranscript + ' ';
+                        console.log('Final:', finalTranscript);
+                    }
+
+                    this.interimTranscript = interimTranscript;
+                    this.updateTranscript();
+                };
+
+                this.recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    let errorMessage = 'Speech recognition error: ' + event.error;
+                    
+                    switch (event.error) {
+                        case 'no-speech':
+                            errorMessage = 'No speech detected. Please try speaking again.';
+                            break;
+                        case 'audio-capture':
+                            errorMessage = 'Unable to capture audio. Please check your microphone.';
+                            break;
+                        case 'not-allowed':
+                            errorMessage = 'Microphone access denied. Please grant microphone permission and try again.';
+                            break;
+                        case 'network':
+                            errorMessage = 'Network error occurred during speech recognition.';
+                            break;
+                    }
+                    
+                    this.updateStatus(errorMessage, '#f44336');
+                    this.transcriptDiv.classList.add('error');
+                };
+
+                this.recognition.onend = () => {
+                    console.log('🔴 Speech recognition ended');
+                    this.isRecording = false;
+                    this.updateStatus('Recording stopped. Click "Start Recording" to try again.', '#2196F3');
+                    this.recordBtn.disabled = false;
+                    this.recordBtn.className = 'test-button';
+                    this.stopBtn.disabled = true;
+                    this.transcriptDiv.classList.remove('error');
+                };
+            }
+
+            startRecording() {
+                if (!this.recognition) {
+                    this.setupRecognition();
+                }
+                
+                try {
+                    this.recognition.lang = this.languageSelect.value;
+                    this.recognition.start();
+                    console.log('🎙️ Starting speech recognition...');
+                } catch (error) {
+                    console.error('Error starting recording:', error);
+                    this.updateStatus('Error starting recording: ' + error.message, '#f44336');
+                }
+            }
+
+            stopRecording() {
+                if (this.recognition && this.isRecording) {
+                    this.recognition.stop();
+                    console.log('🔴 Stopping speech recognition...');
+                }
+            }
+
+            clearTranscript() {
+                this.transcript = '';
+                this.interimTranscript = '';
+                this.updateTranscript();
+                this.updateStatus('Transcript cleared. Ready for new recording.', '#2196F3');
+                this.transcriptDiv.classList.remove('error');
+            }
+
+            updateStatus(message, color = '#ffffff') {
+                this.status.textContent = 'Status: ' + message;
+                this.status.style.color = color;
+                console.log('Status:', message);
+            }
+
+            updateTranscript() {
+                const finalText = this.transcript;
+                const interimText = this.interimTranscript;
+                
+                let html = '<strong>Transcription:</strong><br>';
+                
+                if (finalText || interimText) {
+                    html += '<div style="margin-top: 10px;">';
+                    if (finalText) {
+                        html += `<span style="color: #4CAF50;">${finalText}</span>`;
+                    }
+                    if (interimText) {
+                        html += `<span style="color: #ffeb3b; font-style: italic;">${interimText}</span>`;
+                    }
+                    html += '</div>';
+                    
+                    html += '<div style="margin-top: 15px; font-size: 12px; color: #ccc;">';
+                    html += '<em>Green text = final transcription | Yellow text = interim results</em>';
+                    html += '</div>';
+                } else {
+                    html += '<p><em>Try saying: "Hello, I need help with my health" or "I have been experiencing headaches"</em></p>';
+                }
+                
+                this.transcriptDiv.innerHTML = html;
+            }
+        }
+
+        // Initialize the tester when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new VoiceRecordingTester();
+        });
+    </script>
+</body>
+</html>

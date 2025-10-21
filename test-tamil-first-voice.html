@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>தமிழ் முதல் குரல் பதிவு சோதனை - MedGuide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .title {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .strategy-info {
+            background: rgba(255, 152, 0, 0.2);
+            border: 2px solid #FF9800;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 140px;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
+        }
+        
+        .control-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .recording {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .status-panel {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid #FF9800;
+        }
+        
+        .status-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .status-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .transcript-panel {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            min-height: 150px;
+            border-left: 5px solid #4CAF50;
+        }
+        
+        .transcript-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .transcript-content {
+            font-size: 20px;
+            line-height: 1.6;
+            min-height: 100px;
+        }
+        
+        .tamil-text {
+            color: #FF9800;
+            font-weight: bold;
+        }
+        
+        .english-text {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .interim-text {
+            color: #ffeb3b;
+            font-style: italic;
+        }
+        
+        .confidence-high { color: #4CAF50; }
+        .confidence-medium { color: #FF9800; }
+        .confidence-low { color: #f44336; }
+        
+        .fallback-alert {
+            background: rgba(255, 152, 0, 0.2);
+            border: 2px solid #FF9800;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .fallback-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .fallback-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .fallback-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .tamil-phrases {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .phrases-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .phrase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .phrase-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .phrase-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-left-color: #FF9800;
+            transform: translateY(-2px);
+        }
+        
+        .phrase-category {
+            font-size: 11px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .phrase-tamil {
+            font-size: 16px;
+            font-weight: bold;
+            color: #FFE0B2;
+            margin-bottom: 5px;
+        }
+        
+        .phrase-meaning {
+            font-size: 12px;
+            opacity: 0.8;
+            color: #E3F2FD;
+        }
+        
+        .error-panel {
+            background: rgba(244, 67, 54, 0.2);
+            border: 2px solid #f44336;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .language-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .lang-tamil {
+            background: rgba(255, 152, 0, 0.3);
+            color: #FFB74D;
+        }
+        
+        .lang-english {
+            background: rgba(76, 175, 80, 0.3);
+            color: #81C784;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .control-btn {
+                width: 100%;
+                max-width: 250px;
+            }
+            
+            .phrase-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">🇮🇳🎤 தமிழ் முதல் குரல் சோதனை</div>
+            <div class="subtitle">Tamil-First Voice Recognition for MedGuide</div>
+            <div class="strategy-info">
+                <strong>💡 Tamil முதல் அணுகுமுறை:</strong> தமிழில் பேசுங்கள் முதலில். சிரமம் இருந்தால் ஆங்கிலத்திற்கு தானாக மாற்றம் பரிந்துரைக்கும்!
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="startBtn" class="control-btn">🎙️ பதிவு தொடங்கு</button>
+            <button id="stopBtn" class="control-btn" disabled>🔴 பதிவு நிறுத்து</button>
+            <button id="clearBtn" class="control-btn">🗑️ துடை</button>
+            <button id="langBtn" class="control-btn">🔄 மொழி மாற்று</button>
+        </div>
+
+        <!-- Error Panel -->
+        <div id="errorPanel" class="error-panel">
+            <div id="errorMessage"></div>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <div class="status-title">📊 பதிவு நிலை</div>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">தற்போதைய மொழி</div>
+                    <div class="status-value" id="currentLang">
+                        <span class="language-indicator lang-tamil">🇮🇳 தமிழ்</span>
+                    </div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">பதிவு நிலை</div>
+                    <div class="status-value" id="recordingState">தயார்</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">நம்பிக்கை அளவு</div>
+                    <div class="status-value" id="confidenceLevel">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">தோல்வி எண்ணிக்கை</div>
+                    <div class="status-value" id="failureCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fallback Alert -->
+        <div id="fallbackAlert" class="fallback-alert" style="display: none;">
+            <div id="fallbackMessage">🔄 தமிழ் அடையாளம் கடினமாக உள்ளது. ஆங்கிலத்தில் முயற்சிக்க வேண்டுமா?</div>
+            <div class="fallback-buttons">
+                <button class="fallback-btn" onclick="switchToEnglish()">🇺🇸 ஆங்கிலத்தில் மாறு</button>
+                <button class="fallback-btn" onclick="retryTamil()">🔄 தமிழில் மீண்டும் முயற்சி</button>
+                <button class="fallback-btn" onclick="dismissAlert()">✖️ மூடு</button>
+            </div>
+        </div>
+
+        <!-- Transcript Panel -->
+        <div class="transcript-panel">
+            <div class="transcript-title">💬 தமிழ் குரல் பதிவு</div>
+            <div class="transcript-content" id="transcriptContent">
+                <em>தமிழில் பேச தொடங்குங்கள்...</em>
+            </div>
+        </div>
+
+        <!-- Tamil Medical Phrases -->
+        <div class="tamil-phrases">
+            <div class="phrases-title">🏥 இந்த தமிழ் மருத்துவ வாக்கியங்களை முயற்சிக்கவும்</div>
+            <div class="phrase-grid" id="phraseGrid">
+                <!-- Phrases will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tamil Voice Service Implementation
+        class TamilVoiceTestService {
+            constructor() {
+                this.recognition = null;
+                this.isRecording = false;
+                this.currentLanguage = 'ta-IN';
+                this.userPreference = 'ta-IN';
+                this.failureCount = 0;
+                this.maxFailures = 3;
+                
+                this.callbacks = {
+                    onStart: null,
+                    onResult: null,
+                    onEnd: null,
+                    onError: null,
+                    onFallbackSuggestion: null
+                };
+                
+                // Tamil medical corrections
+                this.tamilMedicalMap = {
+                    'தலை வலி': 'தலைவலி',
+                    'காய் சல்': 'காய்ச்சல்',
+                    'மருத் துவர்': 'மருத்துவர்',
+                    'வயிறு வலி': 'வயிற்று வலி',
+                    'மார் பு வலி': 'மார்பு வலி',
+                    'உடல் நலம்': 'உடல்நலம்'
+                };
+                
+                this.tamilPhrases = [
+                    { tamil: 'வணக்கம் மருத்துவர்', meaning: 'Hello doctor', category: 'greeting' },
+                    { tamil: 'எனக்கு தலைவலி இருக்கிறது', meaning: 'I have headache', category: 'symptom' },
+                    { tamil: 'காய்ச்சல் இருக்கிறது', meaning: 'I have fever', category: 'symptom' },
+                    { tamil: 'வயிற்று வலி இருக்கிறது', meaning: 'I have stomach pain', category: 'symptom' },
+                    { tamil: 'மார்பு வலி உள்ளது', meaning: 'I have chest pain', category: 'symptom' },
+                    { tamil: 'இருமல் வருகிறது', meaning: 'I have cough', category: 'symptom' },
+                    { tamil: 'சளி இருக்கிறது', meaning: 'I have cold', category: 'symptom' },
+                    { tamil: 'உடல்நலம் எப்படி உள்ளது', meaning: 'How is my health', category: 'question' },
+                    { tamil: 'என்ன செய்வது', meaning: 'What should I do', category: 'question' },
+                    { tamil: 'மருத்துவரை பார்க்க வேண்டுமா', meaning: 'Should I see a doctor', category: 'question' }
+                ];
+            }
+
+            setCallbacks(callbacks) {
+                this.callbacks = { ...this.callbacks, ...callbacks };
+            }
+
+            enhanceTamilText(text) {
+                if (!text) return text;
+                let enhanced = text;
+                for (const [incorrect, correct] of Object.entries(this.tamilMedicalMap)) {
+                    enhanced = enhanced.replace(new RegExp(incorrect, 'gi'), correct);
+                }
+                return enhanced;
+            }
+
+            calculateTamilConfidence(text, originalConfidence) {
+                const tamilMedicalTerms = ['தலைவலி', 'காய்ச்சல்', 'வலி', 'மருத்துவர்', 'மருந்து'];
+                const detectedTerms = tamilMedicalTerms.filter(term => text.toLowerCase().includes(term));
+                const contextBonus = detectedTerms.length * 0.2;
+                return Math.min(1.0, (originalConfidence || 0.3) + contextBonus);
+            }
+
+            setupRecognition() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    throw new Error('Speech recognition not supported');
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = this.currentLanguage;
+                this.recognition.maxAlternatives = 5;
+
+                this.recognition.onstart = () => {
+                    this.isRecording = true;
+                    if (this.callbacks.onStart) {
+                        this.callbacks.onStart({ language: this.currentLanguage });
+                    }
+                };
+
+                this.recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+                    let bestConfidence = 0;
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const result = event.results[i];
+                        const transcript = result[0].transcript;
+                        const confidence = result[0].confidence || 0;
+
+                        if (result.isFinal) {
+                            finalTranscript += transcript;
+                            bestConfidence = Math.max(bestConfidence, confidence);
+                            
+                            if (this.currentLanguage === 'ta-IN') {
+                                finalTranscript = this.enhanceTamilText(finalTranscript);
+                                bestConfidence = this.calculateTamilConfidence(finalTranscript, confidence);
+                            }
+                            
+                            if (this.currentLanguage === 'ta-IN' && bestConfidence < 0.4 && finalTranscript.trim().length > 0) {
+                                this.handleTamilFailure(finalTranscript, bestConfidence);
+                            } else {
+                                this.failureCount = 0;
+                            }
+                        } else {
+                            interimTranscript += transcript;
+                            if (this.currentLanguage === 'ta-IN') {
+                                interimTranscript = this.enhanceTamilText(interimTranscript);
+                            }
+                        }
+                    }
+
+                    if (this.callbacks.onResult) {
+                        this.callbacks.onResult({
+                            finalTranscript,
+                            interimTranscript,
+                            confidence: bestConfidence,
+                            language: this.currentLanguage
+                        });
+                    }
+                };
+
+                this.recognition.onerror = (event) => {
+                    if (this.callbacks.onError) {
+                        this.callbacks.onError({
+                            error: event.error,
+                            message: `குரல் பதிவு பிழை: ${event.error}`,
+                            language: this.currentLanguage
+                        });
+                    }
+                };
+
+                this.recognition.onend = () => {
+                    this.isRecording = false;
+                    if (this.callbacks.onEnd) {
+                        this.callbacks.onEnd();
+                    }
+                };
+            }
+
+            handleTamilFailure(transcript, confidence) {
+                this.failureCount++;
+                if (this.failureCount >= this.maxFailures && this.callbacks.onFallbackSuggestion) {
+                    this.callbacks.onFallbackSuggestion({
+                        reason: 'repeated-failures',
+                        failureCount: this.failureCount,
+                        lastTranscript: transcript,
+                        lastConfidence: confidence
+                    });
+                }
+            }
+
+            switchLanguage(language) {
+                this.currentLanguage = language;
+                this.failureCount = 0;
+                console.log(`🔄 Switched to ${language}`);
+            }
+
+            resetFailureCount() {
+                this.failureCount = 0;
+            }
+
+            async startRecording() {
+                if (this.isRecording) return false;
+
+                try {
+                    if (!this.recognition) {
+                        this.setupRecognition();
+                    }
+                    this.recognition.lang = this.currentLanguage;
+                    this.recognition.start();
+                    return true;
+                } catch (error) {
+                    console.error('Failed to start recording:', error);
+                    return false;
+                }
+            }
+
+            stopRecording() {
+                if (this.recognition && this.isRecording) {
+                    this.recognition.stop();
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        // Initialize
+        const voiceService = new TamilVoiceTestService();
+        let currentTranscript = '';
+
+        // UI Elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const langBtn = document.getElementById('langBtn');
+        const transcriptContent = document.getElementById('transcriptContent');
+        const fallbackAlert = document.getElementById('fallbackAlert');
+        const errorPanel = document.getElementById('errorPanel');
+        const currentLangEl = document.getElementById('currentLang');
+        const recordingStateEl = document.getElementById('recordingState');
+        const confidenceLevelEl = document.getElementById('confidenceLevel');
+        const failureCountEl = document.getElementById('failureCount');
+
+        function updateStatus(state, confidence = null) {
+            recordingStateEl.textContent = state;
+            
+            if (confidence !== null) {
+                const confidencePercent = Math.round(confidence * 100);
+                confidenceLevelEl.textContent = `${confidencePercent}%`;
+                confidenceLevelEl.className = `status-value ${
+                    confidence > 0.6 ? 'confidence-high' : 
+                    confidence > 0.3 ? 'confidence-medium' : 'confidence-low'
+                }`;
+            } else {
+                confidenceLevelEl.textContent = '-';
+                confidenceLevelEl.className = 'status-value';
+            }
+            
+            failureCountEl.textContent = voiceService.failureCount;
+        }
+
+        function updateLanguageDisplay() {
+            const issTamil = voiceService.currentLanguage === 'ta-IN';
+            currentLangEl.innerHTML = issTamil 
+                ? '<span class="language-indicator lang-tamil">🇮🇳 தமிழ்</span>'
+                : '<span class="language-indicator lang-english">🇺🇸 English</span>';
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            errorPanel.style.display = 'block';
+            setTimeout(() => {
+                errorPanel.style.display = 'none';
+            }, 5000);
+        }
+
+        function loadTamilPhrases() {
+            const phraseGrid = document.getElementById('phraseGrid');
+            phraseGrid.innerHTML = '';
+            
+            voiceService.tamilPhrases.forEach(phrase => {
+                const card = document.createElement('div');
+                card.className = 'phrase-card';
+                card.onclick = () => speakPhrase(phrase.tamil);
+                
+                card.innerHTML = `
+                    <div class="phrase-category">${phrase.category}</div>
+                    <div class="phrase-tamil">${phrase.tamil}</div>
+                    <div class="phrase-meaning">${phrase.meaning}</div>
+                `;
+                
+                phraseGrid.appendChild(card);
+            });
+        }
+
+        function speakPhrase(phrase) {
+            alert(`தமிழில் பேச முயற்சிக்கவும்: "${phrase}"\n\nமுதலில் "பதிவு தொடங்கு" பொத்தானை அழுத்தவும்.`);
+        }
+
+        // Voice service callbacks
+        voiceService.setCallbacks({
+            onStart: () => {
+                updateStatus('பதிவு செய்கிறது...', null);
+                startBtn.disabled = true;
+                startBtn.className = 'control-btn recording';
+                stopBtn.disabled = false;
+                transcriptContent.innerHTML = '<em class="interim-text">கேட்கிறது...</em>';
+                fallbackAlert.style.display = 'none';
+            },
+            
+            onResult: (result) => {
+                let html = '';
+                
+                if (result.finalTranscript) {
+                    currentTranscript += result.finalTranscript + ' ';
+                }
+                
+                if (currentTranscript || result.interimTranscript) {
+                    if (currentTranscript) {
+                        html += `<span class="${voiceService.currentLanguage === 'ta-IN' ? 'tamil-text' : 'english-text'}">${currentTranscript}</span>`;
+                    }
+                    if (result.interimTranscript) {
+                        html += `<span class="interim-text">${result.interimTranscript}</span>`;
+                    }
+                } else {
+                    html = '<em>தமிழில் பேச தொடங்குங்கள்...</em>';
+                }
+                
+                transcriptContent.innerHTML = html;
+                updateStatus('பதிவு செய்கிறது...', result.confidence);
+            },
+            
+            onEnd: () => {
+                updateStatus('தயார்');
+                startBtn.disabled = false;
+                startBtn.className = 'control-btn';
+                stopBtn.disabled = true;
+            },
+            
+            onError: (error) => {
+                showError(error.message);
+                updateStatus('பிழை');
+                startBtn.disabled = false;
+                startBtn.className = 'control-btn';
+                stopBtn.disabled = true;
+            },
+            
+            onFallbackSuggestion: (data) => {
+                document.getElementById('fallbackMessage').textContent = 
+                    `🔄 தமிழ் அடையாளம் கடினம் (${data.failureCount} முயற்சிகள்). ஆங்கிலத்தில் முயற்சிக்கலாமா?`;
+                fallbackAlert.style.display = 'block';
+            }
+        });
+
+        // Event listeners
+        startBtn.addEventListener('click', async () => {
+            const started = await voiceService.startRecording();
+            if (!started) {
+                showError('பதிவு தொடங்க முடியவில்லை. மைக்ரோஃபோனை சரிபார்க்கவும்.');
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            voiceService.stopRecording();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            currentTranscript = '';
+            transcriptContent.innerHTML = '<em>தமிழில் பேச தொடங்குங்கள்...</em>';
+            updateStatus('தயார்');
+            fallbackAlert.style.display = 'none';
+        });
+
+        langBtn.addEventListener('click', () => {
+            const newLang = voiceService.currentLanguage === 'ta-IN' ? 'en-IN' : 'ta-IN';
+            voiceService.switchLanguage(newLang);
+            updateLanguageDisplay();
+            fallbackAlert.style.display = 'none';
+        });
+
+        // Global functions for fallback alert
+        window.switchToEnglish = () => {
+            voiceService.switchLanguage('en-IN');
+            updateLanguageDisplay();
+            fallbackAlert.style.display = 'none';
+        };
+
+        window.retryTamil = () => {
+            voiceService.resetFailureCount();
+            voiceService.switchLanguage('ta-IN');
+            updateLanguageDisplay();
+            fallbackAlert.style.display = 'none';
+        };
+
+        window.dismissAlert = () => {
+            fallbackAlert.style.display = 'none';
+        };
+
+        // Initialize
+        updateStatus('தயார்');
+        updateLanguageDisplay();
+        loadTamilPhrases();
+        
+        console.log('🎤 Tamil-first voice test initialized!');
+    </script>
+</body>
+</html>

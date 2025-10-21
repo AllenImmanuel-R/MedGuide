@@ -1,0 +1,280 @@
+/* Reports Page Energetic Styles */
+
+/* Upload Area Styles */
+.upload-area {
+  position: relative;
+  border: 2px dashed rgba(168, 85, 247, 0.3);
+  transition: all 0.3s ease;
+}
+
+.upload-area:hover {
+  border-color: rgba(168, 85, 247, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(168, 85, 247, 0.1);
+}
+
+.upload-area.dragging {
+  border-color: rgba(168, 85, 247, 0.8);
+  background: rgba(168, 85, 247, 0.05);
+  transform: scale(1.02);
+}
+
+.upload-icon-container {
+  @apply w-20 h-20 rounded-full flex items-center justify-center;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(219, 39, 119, 0.2));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  position: relative;
+}
+
+.upload-icon-container::before {
+  content: '';
+  @apply absolute inset-0 rounded-full;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(219, 39, 119, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.upload-area:hover .upload-icon-container::before {
+  opacity: 1;
+}
+
+.upload-button {
+  @apply bg-gradient-to-r from-purple-500 to-pink-500;
+  @apply hover:from-purple-600 hover:to-pink-600;
+  @apply border-2 border-white/20;
+  @apply text-white font-medium;
+  @apply transition-all duration-300;
+  @apply shadow-lg;
+}
+
+.upload-button:hover {
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
+  transform: translateY(-1px);
+}
+
+.upload-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Report Card Styles */
+.report-card {
+  @apply transition-all duration-300;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.report-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: 0 10px 30px rgba(168, 85, 247, 0.15);
+}
+
+.report-card .report-icon {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center;
+  @apply bg-gradient-to-br from-purple-500/20 to-pink-500/20;
+  @apply border border-white/20;
+  @apply transition-all duration-300;
+}
+
+.report-card:hover .report-icon {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(219, 39, 119, 0.3));
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+/* Action Buttons */
+.action-buttons {
+  @apply opacity-80 group-hover:opacity-100 transition-opacity duration-300;
+}
+
+/* Individual Action Button Styles */
+.action-button.download-button {
+  @apply bg-blue-500/20 border-blue-400/40 text-blue-200;
+  @apply hover:bg-blue-500/30 hover:text-blue-100 hover:border-blue-300;
+}
+
+.action-button.download-button:hover {
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.action-button.delete-button {
+  @apply bg-red-500/20 border-red-400/40 text-red-200;
+  @apply hover:bg-red-500/30 hover:text-red-100 hover:border-red-300;
+}
+
+.action-button {
+  @apply bg-purple-500/20 border-purple-400/40 text-purple-200;
+  @apply hover:bg-purple-500/30 hover:text-white hover:border-purple-300;
+  @apply transition-all duration-300;
+  backdrop-filter: blur(10px);
+}
+
+.action-button:hover {
+  box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3);
+  transform: translateY(-1px);
+}
+
+.delete-button:hover {
+  @apply bg-red-500/30 border-red-400/60 text-red-200;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Empty State */
+.empty-state {
+  @apply bg-gradient-to-br from-white/5 to-white/10;
+  @apply border border-white/20;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading States */
+.loading-overlay {
+  @apply absolute inset-0 bg-black/50 backdrop-blur-sm;
+  @apply flex items-center justify-center;
+  @apply rounded-3xl;
+  z-index: 10;
+}
+
+/* File Type Icons */
+.file-type-pdf {
+  @apply text-red-400;
+}
+
+.file-type-image {
+  @apply text-green-400;
+}
+
+.file-type-document {
+  @apply text-blue-400;
+}
+
+.file-type-other {
+  @apply text-gray-400;
+}
+
+/* Progress Animation */
+@keyframes uploadProgress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.upload-progress {
+  @apply h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full;
+  animation: uploadProgress 2s ease-in-out;
+}
+
+/* Drag and Drop States */
+.upload-area.drag-over {
+  @apply border-purple-400 bg-purple-500/10;
+  transform: scale(1.02);
+}
+
+.upload-area.drag-over .upload-icon-container {
+  @apply scale-110;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(219, 39, 119, 0.3));
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .report-card {
+    @apply p-4;
+  }
+  
+  .report-card .p-6 {
+    @apply p-4;
+  }
+  
+  .action-buttons {
+    @apply flex-col gap-1;
+  }
+  
+  .upload-area {
+    @apply p-6;
+  }
+  
+  .upload-icon-container {
+    @apply w-16 h-16;
+  }
+}
+
+@media (max-width: 640px) {
+  .report-card .report-card-flex-container {
+    @apply flex-col items-start gap-4;
+  }
+  
+  .report-card .justify-between {
+    @apply justify-start w-full;
+  }
+  
+  .action-buttons {
+    @apply flex-row w-full justify-end;
+  }
+}
+
+/* Enhanced Hover Effects */
+.report-card:hover .report-icon {
+  animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(168, 85, 247, 0);
+  }
+}
+
+/* Smooth Transitions */
+* {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glass Effect Enhancements */
+.report-card {
+  backdrop-filter: blur(20px);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+}
+
+.upload-area {
+  backdrop-filter: blur(20px);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+}
+
+/* Category Badges */
+.category-badge {
+  @apply px-2 py-1 rounded-full text-xs;
+  @apply bg-white/10 text-white/70 border border-white/20;
+}
+
+.category-badge.lab-report {
+  @apply bg-blue-500/20 text-blue-300 border-blue-400/30;
+}
+
+.category-badge.prescription {
+  @apply bg-green-500/20 text-green-300 border-green-400/30;
+}
+
+.category-badge.scan {
+  @apply bg-purple-500/20 text-purple-300 border-purple-400/30;
+}
+
+.category-badge.other {
+  @apply bg-gray-500/20 text-gray-300 border-gray-400/30;
+}

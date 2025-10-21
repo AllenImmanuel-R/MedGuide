@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Service Debug - MedGuide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .debug-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .warning { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .log { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-panel">
+        <h2>🎤 Voice Service Debug Panel</h2>
+        <p>This panel helps debug voice recording initialization issues.</p>
+
+        <div id="browserSupport" class="status info">
+            Checking browser support...
+        </div>
+
+        <div id="initStatus" class="status info">
+            Checking service initialization...
+        </div>
+
+        <div id="permissionStatus" class="status info">
+            Checking microphone permissions...
+        </div>
+
+        <div>
+            <button id="testBtn" onclick="testVoiceService()" disabled>Test Voice Service</button>
+            <button id="clearBtn" onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <h3>Debug Log:</h3>
+        <div id="log" class="log">Initializing debug panel...</div>
+    </div>
+
+    <script>
+        let logOutput = '';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            logOutput += `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            document.getElementById('log').textContent = logOutput;
+            console.log(message);
+        }
+
+        function clearLog() {
+            logOutput = '';
+            document.getElementById('log').textContent = 'Log cleared.';
+        }
+
+        function updateStatus(elementId, message, className) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${className}`;
+        }
+
+        // Simplified Voice Service for testing
+        class TestVoiceService {
+            constructor() {
+                this.recognition = null;
+                this.isInitialized = false;
+                this.hasPermission = false;
+                this.init();
+            }
+
+            async init() {
+                log('🎤 Starting voice service initialization...');
+                
+                try {
+                    // Check browser support
+                    if (!this.isSpeechRecognitionSupported()) {
+                        throw new Error('Speech recognition not supported');
+                    }
+                    log('✅ Speech recognition supported');
+                    updateStatus('browserSupport', '✅ Speech recognition supported', 'success');
+
+                    // Create recognition instance
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    this.recognition = new SpeechRecognition();
+                    log('✅ SpeechRecognition instance created');
+
+                    // Configure recognition
+                    this.setupRecognition();
+                    log('✅ Speech recognition configured');
+
+                    this.isInitialized = true;
+                    log('✅ Voice service initialized successfully');
+                    updateStatus('initStatus', '✅ Voice service initialized', 'success');
+
+                    // Test microphone permission
+                    await this.checkPermission();
+
+                    // Enable test button
+                    document.getElementById('testBtn').disabled = false;
+
+                } catch (error) {
+                    log(`❌ Initialization failed: ${error.message}`, 'error');
+                    updateStatus('initStatus', `❌ Initialization failed: ${error.message}`, 'error');
+                    if (error.message.includes('not supported')) {
+                        updateStatus('browserSupport', '❌ Speech recognition not supported', 'error');
+                    }
+                }
+            }
+
+            setupRecognition() {
+                if (!this.recognition) return;
+
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = 'en-US';
+
+                this.recognition.onstart = () => {
+                    log('🎙️ Recording started');
+                };
+
+                this.recognition.onend = () => {
+                    log('🔴 Recording ended');
+                };
+
+                this.recognition.onerror = (event) => {
+                    log(`🚫 Recognition error: ${event.error}`, 'error');
+                };
+
+                this.recognition.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    log(`🗣️ Transcription: "${transcript}"`);
+                };
+            }
+
+            async checkPermission() {
+                try {
+                    log('🎤 Checking microphone permission...');
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    this.hasPermission = true;
+                    log('✅ Microphone permission granted');
+                    updateStatus('permissionStatus', '✅ Microphone permission granted', 'success');
+                    
+                } catch (error) {
+                    log(`⚠️ Permission check: ${error.message}`, 'warning');
+                    updateStatus('permissionStatus', '⚠️ Permission will be requested when recording starts', 'warning');
+                    this.hasPermission = false;
+                }
+            }
+
+            isSpeechRecognitionSupported() {
+                return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+            }
+
+            getStatus() {
+                return {
+                    isInitialized: this.isInitialized,
+                    hasPermission: this.hasPermission,
+                    isRecording: false
+                };
+            }
+
+            async ensureInitialized() {
+                if (!this.isInitialized) {
+                    throw new Error('Service not initialized');
+                }
+                log('✅ Service initialization confirmed');
+            }
+
+            async startRecording() {
+                await this.ensureInitialized();
+                
+                if (!this.recognition) {
+                    throw new Error('Speech recognition not available');
+                }
+
+                log('🎙️ Starting recording...');
+                this.recognition.start();
+            }
+
+            stopRecording() {
+                if (this.recognition) {
+                    log('🔴 Stopping recording...');
+                    this.recognition.stop();
+                }
+            }
+        }
+
+        // Initialize test service
+        let testService;
+        
+        async function testVoiceService() {
+            try {
+                log('🧪 Starting voice service test...');
+                
+                const status = testService.getStatus();
+                log(`📊 Service status: initialized=${status.isInitialized}, hasPermission=${status.hasPermission}`);
+
+                if (!status.isInitialized) {
+                    throw new Error('Service not initialized');
+                }
+
+                // Test starting recording
+                await testService.startRecording();
+                log('✅ Recording started successfully');
+
+                // Stop after 3 seconds
+                setTimeout(() => {
+                    testService.stopRecording();
+                    log('✅ Test completed successfully');
+                }, 3000);
+
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            log('🚀 Initializing debug panel...');
+            testService = new TestVoiceService();
+        });
+    </script>
+</body>
+</html>

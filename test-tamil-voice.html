@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>தமிழ் குரல் பதிவு சோதனை - MedGuide</title>
+    <style>
+        body {
+            font-family: 'Noto Sans Tamil', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .test-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .recording {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .status {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+        }
+        .transcript {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            min-height: 100px;
+            border-left: 5px solid #4CAF50;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        .error {
+            background: rgba(244, 67, 54, 0.2);
+            border-left-color: #f44336;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 3em;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .sample-phrases {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .phrase {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .phrase:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🎤 🇮🇳</div>
+        <h1>தமிழ் குரல் பதிவு சோதனை</h1>
+        <p style="text-align: center;">MedGuide-ன் தமிழ் குரல் அடையாளம் அம்சத்தை சோதிக்கவும்</p>
+        
+        <div class="feature-grid">
+            <div class="feature">
+                <h3>🗣️ தமிழ் அடையாளம்</h3>
+                <p>தமிழில் பேசுங்கள், உடனடியாக உரையாக மாறும்</p>
+            </div>
+            <div class="feature">
+                <h3>🏥 மருத்துவ சொற்கள்</h3>
+                <p>மருத்துவ கேள்விகளை தமிழில் கேளுங்கள்</p>
+            </div>
+            <div class="feature">
+                <h3>⚡ நேரடி परिणाम</h3>
+                <p>பேசும் போதே உரை தெரியும்</p>
+            </div>
+            <div class="feature">
+                <h3>🔒 தனியுரिमை</h3>
+                <p>உங்கள் உலாவியிலேயே செயல்படுகிறது</p>
+            </div>
+        </div>
+
+        <h2>குரல் பதிவை சோதிக்கவும்</h2>
+        
+        <div style="text-align: center;">
+            <button id="recordBtn" class="test-button">🎤 பதிவு தொடங்கு</button>
+            <button id="stopBtn" class="test-button" disabled>🔴 பதிவு நிறுத்து</button>
+            <button id="clearBtn" class="test-button">🗑️ साफ करें</button>
+        </div>
+
+        <div id="status" class="status">
+            நிலை: சோதனைக்கு தயார்
+        </div>
+
+        <div id="transcript" class="transcript">
+            <strong>தமிழ் உரை மொழிபெயர்ப்பு இங்கே தோன்றும்...</strong>
+            <div class="sample-phrases">
+                <h4>🗣️ இவற்றை பேசி பாருங்கள்:</h4>
+                <div class="phrase" onclick="insertSample(this)">
+                    "வணக்கம், எனக்கு தலைவலி இருக்கிறது"
+                </div>
+                <div class="phrase" onclick="insertSample(this)">
+                    "என் உடல்நலம் எப்படி உள்ளது"
+                </div>
+                <div class="phrase" onclick="insertSample(this)">
+                    "காய்ச்சல் இருக்கிறது, என்ன செய்வது"
+                </div>
+                <div class="phrase" onclick="insertSample(this)">
+                    "என் அறிக்கைகளை பகுப்பாய்வு செய்யுங்கள்"
+                </div>
+                <div class="phrase" onclick="insertSample(this)">
+                    "மருத்துவரை எப்போது பார்க்க வேண்டும்"
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class TamilVoiceRecorder {
+            constructor() {
+                this.recognition = null;
+                this.isRecording = false;
+                this.transcript = '';
+                this.interimTranscript = '';
+                
+                this.recordBtn = document.getElementById('recordBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.status = document.getElementById('status');
+                this.transcriptDiv = document.getElementById('transcript');
+                
+                this.init();
+            }
+
+            async init() {
+                console.log('🎤 தமிழ் குரல் சேவை தொடங்குகிறது...');
+                
+                // Check support
+                if (!this.isSpeechRecognitionSupported()) {
+                    this.updateStatus('❌ இந்த உலாவியில் குரல் அடையாளம் ஆதரிக்கப்படவில்லை', '#f44336');
+                    this.recordBtn.disabled = true;
+                    return;
+                }
+                
+                this.updateStatus('✅ தமிழ் குரல் அடையாளம் தயார்!', '#4CAF50');
+                
+                // Set up event listeners
+                this.recordBtn.addEventListener('click', () => this.startRecording());
+                this.stopBtn.addEventListener('click', () => this.stopRecording());
+                this.clearBtn.addEventListener('click', () => this.clearTranscript());
+                
+                // Check permissions
+                await this.checkPermissions();
+            }
+
+            isSpeechRecognitionSupported() {
+                return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+            }
+
+            async checkPermissions() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    console.log('✅ மைக்ரோஃபோன் அனுமதி வழங்கப்பட்டது');
+                } catch (error) {
+                    console.log('⚠️ மைக்ரோஃபோன் அனுமதி தேவை - பதிவு தொடங்கும்போது கேட்கப்படும்');
+                }
+            }
+
+            setupRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                
+                // Configure for Tamil
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = 'ta-IN'; // Tamil (India)
+                this.recognition.maxAlternatives = 1;
+
+                this.recognition.onstart = () => {
+                    console.log('🎙️ தமிழ் குரல் பதிவு தொடங்கியது');
+                    this.isRecording = true;
+                    this.updateStatus('🎙️ பதிவு ஒலிக்கிறது... தமிழில் பேசுங்கள!', '#4CAF50');
+                    this.recordBtn.disabled = true;
+                    this.recordBtn.className = 'test-button recording';
+                    this.stopBtn.disabled = false;
+                };
+
+                this.recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    if (finalTranscript) {
+                        this.transcript += finalTranscript + ' ';
+                        console.log('📝 தமிழ் உரை:', finalTranscript);
+                    }
+
+                    this.interimTranscript = interimTranscript;
+                    this.updateTranscript();
+                };
+
+                this.recognition.onerror = (event) => {
+                    console.error('🚫 குரல் பதிவு பிழை:', event.error);
+                    let errorMessage = 'குரல் பதிவில் பிழை: ' + event.error;
+                    
+                    switch (event.error) {
+                        case 'no-speech':
+                            errorMessage = 'எந்த பேச்சும் கேட்கவில்லை. மீண்டும் முயற்சிக்கவும்.';
+                            break;
+                        case 'audio-capture':
+                            errorMessage = 'ஆடியோ கேட்க முடியவில்லை. மைக்ரோஃபோனை சரிபார்க்கவும்.';
+                            break;
+                        case 'not-allowed':
+                            errorMessage = 'மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டது. அனுமதி வழங்கி மீண்டும் முயற்சிக்கவும்.';
+                            break;
+                        case 'network':
+                            errorMessage = 'நெட்வொர்க் பிழை ஏற்பட்டது.';
+                            break;
+                    }
+                    
+                    this.updateStatus(errorMessage, '#f44336');
+                    this.transcriptDiv.classList.add('error');
+                };
+
+                this.recognition.onend = () => {
+                    console.log('🔴 தமிழ் குரல் பதிவு முடிந்தது');
+                    this.isRecording = false;
+                    this.updateStatus('பதிவு நிறுத்தப்பட்டது. மீண்டும் "பதிவு தொடங்கு" பொத்தானை அழுத்தவும்.', '#2196F3');
+                    this.recordBtn.disabled = false;
+                    this.recordBtn.className = 'test-button';
+                    this.stopBtn.disabled = true;
+                    this.transcriptDiv.classList.remove('error');
+                };
+            }
+
+            startRecording() {
+                if (!this.recognition) {
+                    this.setupRecognition();
+                }
+                
+                try {
+                    this.recognition.start();
+                    console.log('🎙️ தமிழ் குரல் பதிவு தொடங்குகிறது...');
+                } catch (error) {
+                    console.error('பதிவு தொடங்குவதில் பிழை:', error);
+                    this.updateStatus('பதிவு தொடங்குவதில் பிழை: ' + error.message, '#f44336');
+                }
+            }
+
+            stopRecording() {
+                if (this.recognition && this.isRecording) {
+                    this.recognition.stop();
+                    console.log('🔴 தமிழ் குரல் பதிவு நிறுத்தப்படுகிறது...');
+                }
+            }
+
+            clearTranscript() {
+                this.transcript = '';
+                this.interimTranscript = '';
+                this.updateTranscript();
+                this.updateStatus('உரை साफ் செய்யப்பட்டது. புதிய பதிவுக்கு தயார்.', '#2196F3');
+                this.transcriptDiv.classList.remove('error');
+            }
+
+            updateStatus(message, color = '#ffffff') {
+                this.status.textContent = 'நிலை: ' + message;
+                this.status.style.color = color;
+                console.log('நிலை:', message);
+            }
+
+            updateTranscript() {
+                const finalText = this.transcript;
+                const interimText = this.interimTranscript;
+                
+                let html = '<strong>தமிழ் உரை மொழிபெயர்ப்பு:</strong><br>';
+                
+                if (finalText || interimText) {
+                    html += '<div style="margin-top: 15px; font-size: 20px; line-height: 1.8;">';
+                    if (finalText) {
+                        html += `<span style="color: #4CAF50; font-weight: bold;">${finalText}</span>`;
+                    }
+                    if (interimText) {
+                        html += `<span style="color: #ffeb3b; font-style: italic;">${interimText}</span>`;
+                    }
+                    html += '</div>';
+                    
+                    html += '<div style="margin-top: 15px; font-size: 12px; color: #ccc;">';
+                    html += '<em>பச்சை நிற உரை = முழுமையான மொழிபெயர்ப்பு | மஞ்சள் நிற உரை = தற்காலிக परिणाम</em>';
+                    html += '</div>';
+                } else {
+                    html += '<div class="sample-phrases">';
+                    html += '<h4>🗣️ இவற்றை பேசி பாருங்கள்:</h4>';
+                    html += '<div class="phrase">"வணக்கம், எனக்கு தலைவலி இருக்கிறது"</div>';
+                    html += '<div class="phrase">"என் உடல்நலம் எப்படி உள்ளது"</div>';
+                    html += '<div class="phrase">"காய்ச்சல் இருக்கிறது, என்ன செய்வது"</div>';
+                    html += '<div class="phrase">"என் அறிக்கைகளை பகுப்பாய்வு செய்யுங்கள்"</div>';
+                    html += '<div class="phrase">"மருத்துவரை எப்போது பார்க்க வேண்டும்"</div>';
+                    html += '</div>';
+                }
+                
+                this.transcriptDiv.innerHTML = html;
+            }
+        }
+
+        function insertSample(element) {
+            console.log('🎯 नमूना वाक्य:', element.textContent);
+            alert('इस वाक्य को बोलने का प्रयास करें: ' + element.textContent);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new TamilVoiceRecorder();
+        });
+    </script>
+</body>
+</html>

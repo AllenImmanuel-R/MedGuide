@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practical Voice Solution - MedGuide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .title {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .strategy-info {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4CAF50;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #6a1b9a, #8e24aa);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 140px;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(106, 27, 154, 0.4);
+        }
+        
+        .control-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .recording {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #4CAF50;
+        }
+        
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .recognition-panel {
+            border-left-color: #2196F3;
+        }
+        
+        .translation-panel {
+            border-left-color: #FF9800;
+        }
+        
+        .text-content {
+            font-size: 18px;
+            line-height: 1.6;
+            min-height: 100px;
+            margin-bottom: 15px;
+        }
+        
+        .english-text {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .tamil-text {
+            color: #FF9800;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        
+        .interim-text {
+            color: #ffeb3b;
+            font-style: italic;
+        }
+        
+        .confidence-bar {
+            background: rgba(0, 0, 0, 0.3);
+            height: 8px;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336, #FF9800, #4CAF50);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+        
+        .phrase-suggestions {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .suggestions-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .phrase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .phrase-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .phrase-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-left-color: #4CAF50;
+            transform: translateY(-2px);
+        }
+        
+        .phrase-category {
+            font-size: 11px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .phrase-english {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #E3F2FD;
+        }
+        
+        .phrase-tamil {
+            font-size: 16px;
+            font-weight: bold;
+            color: #FFE0B2;
+        }
+        
+        .instructions {
+            background: rgba(33, 150, 243, 0.2);
+            border: 2px solid #2196F3;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 15px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .error-panel {
+            background: rgba(244, 67, 54, 0.2);
+            border: 2px solid #f44336;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .control-btn {
+                width: 100%;
+                max-width: 250px;
+            }
+            
+            .phrase-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">🎯 Practical Voice Solution</div>
+            <div class="subtitle">English Speech Recognition + Tamil Translation</div>
+            <div class="strategy-info">
+                <strong>💡 Smart Strategy:</strong> Since Tamil speech recognition is unreliable, we use high-quality English recognition and translate medical terms to Tamil. This gives Tamil users the best experience!
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>🗣️ How to Use:</h3>
+            <ol>
+                <li><strong>Speak in English</strong> - The system will recognize your English clearly</li>
+                <li><strong>Use medical terms</strong> - Say things like "I have headache" or "fever"</li>
+                <li><strong>Get Tamil translation</strong> - Medical terms will automatically translate to Tamil</li>
+                <li><strong>Try sample phrases</strong> - Click on any phrase below to see what to say</li>
+            </ol>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="startBtn" class="control-btn">🎙️ Start Recording</button>
+            <button id="stopBtn" class="control-btn" disabled>🔴 Stop Recording</button>
+            <button id="clearBtn" class="control-btn">🗑️ Clear</button>
+            <button id="toggleLang" class="control-btn">🌐 Tamil User</button>
+        </div>
+
+        <!-- Error Panel -->
+        <div id="errorPanel" class="error-panel">
+            <div id="errorMessage"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- English Recognition -->
+            <div class="panel recognition-panel">
+                <div class="panel-title">
+                    🇺🇸 English Recognition (High Accuracy)
+                </div>
+                <div class="text-content" id="englishContent">
+                    <em>Your English speech will appear here...</em>
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceFill" style="width: 0%"></div>
+                </div>
+                <div style="font-size: 12px; opacity: 0.7;">
+                    Confidence: <span id="confidenceText">0%</span>
+                </div>
+            </div>
+
+            <!-- Tamil Translation -->
+            <div class="panel translation-panel">
+                <div class="panel-title">
+                    🇮🇳 Tamil Translation (Medical Terms)
+                </div>
+                <div class="text-content" id="tamilContent">
+                    <em>Tamil translations will appear here...</em>
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 10px;">
+                    <span id="translationCount">0</span> medical terms translated
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Phrases -->
+        <div class="phrase-suggestions">
+            <div class="suggestions-title">📋 Try These Medical Phrases (Speak in English)</div>
+            <div class="phrase-grid" id="phraseGrid">
+                <!-- Phrases will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalRecognitions">0</div>
+                <div class="stat-label">Voice Recognitions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalTranslations">0</div>
+                <div class="stat-label">Tamil Translations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="averageConfidence">0%</div>
+                <div class="stat-label">Average Confidence</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="userLanguage">English</div>
+                <div class="stat-label">User Language</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Practical Voice Service Implementation
+        class PracticalVoiceService {
+            constructor() {
+                this.recognition = null;
+                this.isRecording = false;
+                this.userLanguagePreference = 'en';
+                this.recognitionLanguage = 'en-US';
+                
+                this.callbacks = {
+                    onStart: null,
+                    onResult: null,
+                    onEnd: null,
+                    onError: null,
+                    onTranslation: null
+                };
+                
+                // Medical phrase mappings
+                this.medicalPhraseMap = {
+                    // Greetings
+                    'hello': 'வணக்கம்',
+                    'hi': 'வணக்கம்',
+                    'good morning': 'காலை வணக்கம்',
+                    'thank you': 'நன்றி',
+                    'please help': 'தயவுசெய்து உதவுங்கள்',
+                    
+                    // Symptoms
+                    'headache': 'தலைவலி',
+                    'fever': 'காய்ச்சல்',
+                    'cold': 'சளி',
+                    'cough': 'இருமல்',
+                    'stomach pain': 'வயிற்று வலி',
+                    'back pain': 'முதுகு வலி',
+                    'chest pain': 'மார்பு வலி',
+                    'sore throat': 'தொண்டை வலி',
+                    'body pain': 'உடல் வலி',
+                    'tiredness': 'சோர்வு',
+                    'nausea': 'குமட்டல்',
+                    'dizziness': 'தலைச்சுற்றல்',
+                    
+                    // Body parts
+                    'head': 'தலை',
+                    'eye': 'கண்',
+                    'stomach': 'வயிறு',
+                    'chest': 'மார்பு',
+                    'back': 'முதுகு',
+                    'throat': 'தொண்டை',
+                    
+                    // Questions
+                    'how is my health': 'என் உடல்நலம் எப்படி உள்ளது',
+                    'what should i do': 'நான் என்ன செய்ய வேண்டும்',
+                    'when should i see a doctor': 'நான் எப்போது மருத்துவரை பார்க்க வேண்டும்',
+                    
+                    // Medical terms
+                    'doctor': 'மருத்துவர்',
+                    'medicine': 'மருந்து',
+                    'hospital': 'மருத்துவமனை',
+                    'treatment': 'சிகிச்சை'
+                };
+                
+                this.stats = {
+                    totalRecognitions: 0,
+                    totalTranslations: 0,
+                    totalConfidence: 0
+                };
+            }
+
+            setCallbacks(callbacks) {
+                this.callbacks = { ...this.callbacks, ...callbacks };
+            }
+
+            setUserLanguage(language) {
+                this.userLanguagePreference = language;
+            }
+
+            translateToTamil(englishText) {
+                if (!englishText || this.userLanguagePreference !== 'ta') {
+                    return { translated: englishText, translationCount: 0 };
+                }
+
+                let translated = englishText.toLowerCase();
+                let translationCount = 0;
+                
+                const phrases = Object.keys(this.medicalPhraseMap).sort((a, b) => b.length - a.length);
+                
+                for (const englishPhrase of phrases) {
+                    if (translated.includes(englishPhrase.toLowerCase())) {
+                        const tamilTranslation = this.medicalPhraseMap[englishPhrase];
+                        translated = translated.replace(
+                            new RegExp(englishPhrase.toLowerCase(), 'gi'), 
+                            tamilTranslation
+                        );
+                        translationCount++;
+                    }
+                }
+
+                return { translated, translationCount };
+            }
+
+            setupRecognition() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    throw new Error('Speech recognition not supported');
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = 'en-US';
+                this.recognition.maxAlternatives = 1;
+
+                this.recognition.onstart = () => {
+                    this.isRecording = true;
+                    if (this.callbacks.onStart) {
+                        this.callbacks.onStart('en-US');
+                    }
+                };
+
+                this.recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        const confidence = event.results[i][0].confidence || 0.85;
+
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                            this.stats.totalRecognitions++;
+                            this.stats.totalConfidence += confidence;
+                            
+                            const translation = this.translateToTamil(finalTranscript);
+                            this.stats.totalTranslations += translation.translationCount;
+                            
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    if (this.callbacks.onResult) {
+                        const translation = this.translateToTamil(finalTranscript || interimTranscript);
+                        this.callbacks.onResult({
+                            finalTranscript,
+                            interimTranscript,
+                            confidence: 0.85,
+                            language: 'en-US',
+                            translatedText: translation.translated,
+                            translationCount: translation.translationCount,
+                            userLanguage: this.userLanguagePreference
+                        });
+                    }
+                };
+
+                this.recognition.onerror = (event) => {
+                    if (this.callbacks.onError) {
+                        this.callbacks.onError({
+                            error: event.error,
+                            message: `Voice recording error: ${event.error}`,
+                            language: this.recognitionLanguage
+                        });
+                    }
+                };
+
+                this.recognition.onend = () => {
+                    this.isRecording = false;
+                    if (this.callbacks.onEnd) {
+                        this.callbacks.onEnd();
+                    }
+                };
+            }
+
+            async startRecording() {
+                if (this.isRecording) return false;
+
+                try {
+                    if (!this.recognition) {
+                        this.setupRecognition();
+                    }
+                    this.recognition.start();
+                    return true;
+                } catch (error) {
+                    if (this.callbacks.onError) {
+                        this.callbacks.onError({
+                            error: 'start-failed',
+                            message: error.message,
+                            language: this.recognitionLanguage
+                        });
+                    }
+                    return false;
+                }
+            }
+
+            stopRecording() {
+                if (this.recognition && this.isRecording) {
+                    this.recognition.stop();
+                    return true;
+                }
+                return false;
+            }
+
+            getMedicalPhrases() {
+                return Object.entries(this.medicalPhraseMap).map(([english, tamil]) => ({
+                    english,
+                    tamil,
+                    category: this.categorizeMedicalPhrase(english)
+                }));
+            }
+
+            categorizeMedicalPhrase(phrase) {
+                if (['hello', 'hi', 'good morning', 'thank you'].includes(phrase)) {
+                    return 'greetings';
+                }
+                if (['headache', 'fever', 'cold', 'cough', 'pain'].some(symptom => phrase.includes(symptom))) {
+                    return 'symptoms';
+                }
+                if (['head', 'eye', 'stomach', 'chest'].some(part => phrase.includes(part))) {
+                    return 'body_parts';
+                }
+                if (['doctor', 'medicine', 'hospital'].some(term => phrase.includes(term))) {
+                    return 'medical_terms';
+                }
+                if (phrase.includes('?') || ['how', 'what', 'when'].some(q => phrase.includes(q))) {
+                    return 'questions';
+                }
+                return 'general';
+            }
+
+            getStats() {
+                return {
+                    ...this.stats,
+                    averageConfidence: this.stats.totalRecognitions > 0 
+                        ? Math.round((this.stats.totalConfidence / this.stats.totalRecognitions) * 100) + '%'
+                        : '0%'
+                };
+            }
+        }
+
+        // Initialize
+        const voiceService = new PracticalVoiceService();
+        let currentEnglishText = '';
+        let currentTamilText = '';
+
+        // UI Elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const toggleLangBtn = document.getElementById('toggleLang');
+        const englishContent = document.getElementById('englishContent');
+        const tamilContent = document.getElementById('tamilContent');
+        const errorPanel = document.getElementById('errorPanel');
+        const confidenceFill = document.getElementById('confidenceFill');
+        const confidenceText = document.getElementById('confidenceText');
+        const translationCount = document.getElementById('translationCount');
+        const phraseGrid = document.getElementById('phraseGrid');
+
+        function updateStats() {
+            const stats = voiceService.getStats();
+            document.getElementById('totalRecognitions').textContent = stats.totalRecognitions;
+            document.getElementById('totalTranslations').textContent = stats.totalTranslations;
+            document.getElementById('averageConfidence').textContent = stats.averageConfidence;
+            document.getElementById('userLanguage').textContent = 
+                voiceService.userLanguagePreference === 'ta' ? 'Tamil' : 'English';
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            errorPanel.style.display = 'block';
+            setTimeout(() => {
+                errorPanel.style.display = 'none';
+            }, 5000);
+        }
+
+        function loadPhrases() {
+            const phrases = voiceService.getMedicalPhrases();
+            phraseGrid.innerHTML = '';
+            
+            phrases.forEach(phrase => {
+                const card = document.createElement('div');
+                card.className = 'phrase-card';
+                card.onclick = () => speakPhrase(phrase.english);
+                
+                card.innerHTML = `
+                    <div class="phrase-category">${phrase.category.replace('_', ' ')}</div>
+                    <div class="phrase-english">${phrase.english}</div>
+                    <div class="phrase-tamil">${phrase.tamil}</div>
+                `;
+                
+                phraseGrid.appendChild(card);
+            });
+        }
+
+        function speakPhrase(phrase) {
+            alert(`Try saying: "${phrase}"\n\nClick "Start Recording" first, then speak this phrase clearly in English.`);
+        }
+
+        // Set up voice service callbacks
+        voiceService.setCallbacks({
+            onStart: () => {
+                startBtn.disabled = true;
+                startBtn.className = 'control-btn recording';
+                stopBtn.disabled = false;
+                englishContent.innerHTML = '<em class="interim-text">Listening...</em>';
+                tamilContent.innerHTML = '<em>Waiting for translation...</em>';
+            },
+            
+            onResult: (result) => {
+                let englishHtml = '';
+                let tamilHtml = '';
+                
+                if (result.finalTranscript) {
+                    currentEnglishText += result.finalTranscript + ' ';
+                    englishHtml += `<span class="english-text">${currentEnglishText}</span>`;
+                }
+                if (result.interimTranscript) {
+                    englishHtml += `<span class="interim-text">${result.interimTranscript}</span>`;
+                }
+                
+                if (result.translatedText && result.translatedText !== (result.finalTranscript || result.interimTranscript)) {
+                    tamilHtml = `<span class="tamil-text">${result.translatedText}</span>`;
+                    translationCount.textContent = result.translationCount || 0;
+                } else if (voiceService.userLanguagePreference === 'ta') {
+                    tamilHtml = '<em>Speak medical terms for translation...</em>';
+                } else {
+                    tamilHtml = '<em>Switch to Tamil mode for translation...</em>';
+                }
+                
+                englishContent.innerHTML = englishHtml || '<em>Start speaking...</em>';
+                tamilContent.innerHTML = tamilHtml;
+                
+                // Update confidence
+                const confidence = Math.round((result.confidence || 0) * 100);
+                confidenceFill.style.width = confidence + '%';
+                confidenceText.textContent = confidence + '%';
+                
+                updateStats();
+            },
+            
+            onEnd: () => {
+                startBtn.disabled = false;
+                startBtn.className = 'control-btn';
+                stopBtn.disabled = true;
+                updateStats();
+            },
+            
+            onError: (error) => {
+                showError(error.message);
+                startBtn.disabled = false;
+                startBtn.className = 'control-btn';
+                stopBtn.disabled = true;
+            }
+        });
+
+        // Event listeners
+        startBtn.addEventListener('click', async () => {
+            const started = await voiceService.startRecording();
+            if (!started) {
+                showError('Failed to start recording. Please check your microphone.');
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            voiceService.stopRecording();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            currentEnglishText = '';
+            currentTamilText = '';
+            englishContent.innerHTML = '<em>Your English speech will appear here...</em>';
+            tamilContent.innerHTML = '<em>Tamil translations will appear here...</em>';
+            confidenceFill.style.width = '0%';
+            confidenceText.textContent = '0%';
+            translationCount.textContent = '0';
+        });
+
+        toggleLangBtn.addEventListener('click', () => {
+            if (voiceService.userLanguagePreference === 'en') {
+                voiceService.setUserLanguage('ta');
+                toggleLangBtn.textContent = '🌐 English User';
+                toggleLangBtn.style.background = 'linear-gradient(45deg, #FF9800, #F57C00)';
+            } else {
+                voiceService.setUserLanguage('en');
+                toggleLangBtn.textContent = '🌐 Tamil User';
+                toggleLangBtn.style.background = 'linear-gradient(45deg, #6a1b9a, #8e24aa)';
+            }
+            updateStats();
+        });
+
+        // Initialize
+        loadPhrases();
+        updateStats();
+        console.log('🎯 Practical Voice Solution initialized!');
+    </script>
+</body>
+</html>
