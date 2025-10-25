@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { ThemeProvider } from "@/components/theme-provider";
 import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
@@ -11,7 +12,7 @@ import Clinics from "./pages/Clinics";
 import NotFound from "./pages/NotFound";
 import About from "./pages/About";
 import Auth from "./pages/Auth";
-import ChatPage from "./pages/ChatPage";
+import Chat from "./pages/Chat";
 import TestMedicalReports from "./pages/TestMedicalReports";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
@@ -96,7 +97,9 @@ const AnimatedRoutes = () => {
           path="/chat"
           element={
             <ProtectedRoute>
-              <ChatPage />
+              <Layout>
+                <Chat />
+              </Layout>
             </ProtectedRoute>
           }
         />
@@ -110,15 +113,17 @@ const AnimatedRoutes = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AnimatedRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <ThemeProvider defaultTheme="light" storageKey="medguide-ui-theme">
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AnimatedRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

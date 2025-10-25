@@ -11,6 +11,7 @@ import { reportsAPI, aiAPI } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { clinicFinderService, locationService } from '@/services/clinicServices';
+import LiveLocationTracker from '@/components/LiveLocationTracker';
 import type { UserLocation } from '@/services/clinicServices';
 
 const Dashboard = () => {
@@ -127,47 +128,49 @@ const Dashboard = () => {
     loadBasicDashboardData();
   }, [user]);
 
+  // Load nearby clinics function
+  const loadNearbyClinics = async (location?: UserLocation) => {
+    const targetLocation = location || userLocation;
+    if (!targetLocation) return;
+    
+    try {
+      setIsLoadingClinics(true);
+      console.log('🔍 Scanning for nearby clinics...');
+      
+      const clinics = await clinicFinderService.findNearbyClinics({
+        maxDistance: 10000, // 10km in meters
+        limit: 50
+      });
+      
+      console.log(`✅ Found ${clinics.length} nearby clinics`);
+      
+      setStats(prevStats => prevStats.map((stat, index) => 
+        index === 1 ? {
+          ...stat,
+          value: clinics.length.toString(),
+          change: `Within 10km`
+        } : stat
+      ));
+      
+      setIsLoadingClinics(false);
+      
+    } catch (error) {
+      console.error('❌ Error loading nearby clinics:', error);
+      setIsLoadingClinics(false);
+      
+      // Fallback to demo data
+      setStats(prevStats => prevStats.map((stat, index) => 
+        index === 1 ? {
+          ...stat,
+          value: "2",
+          change: "Demo data"
+        } : stat
+      ));
+    }
+  };
+
   // Load nearby clinics when location is available
   useEffect(() => {
-    const loadNearbyClinics = async () => {
-      if (!userLocation) return;
-      
-      try {
-        setIsLoadingClinics(true);
-        console.log('🔍 Scanning for nearby clinics...');
-        
-        const clinics = await clinicFinderService.findNearbyClinics({
-          maxDistance: 10000, // 10km in meters
-          limit: 50
-        });
-        
-        console.log(`✅ Found ${clinics.length} nearby clinics`);
-        
-        setStats(prevStats => prevStats.map((stat, index) => 
-          index === 1 ? {
-            ...stat,
-            value: clinics.length.toString(),
-            change: `Within 10km`
-          } : stat
-        ));
-        
-        setIsLoadingClinics(false);
-        
-      } catch (error) {
-        console.error('❌ Error loading nearby clinics:', error);
-        setIsLoadingClinics(false);
-        
-        // Fallback to demo data
-        setStats(prevStats => prevStats.map((stat, index) => 
-          index === 1 ? {
-            ...stat,
-            value: "2",
-            change: "Demo data"
-          } : stat
-        ));
-      }
-    };
-
     if (userLocation && !isLoadingLocation) {
       loadNearbyClinics();
     }
@@ -360,17 +363,33 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* AI Assistant CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-8"
-        >
-          <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+          {/* Live Location Tracker */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <LiveLocationTracker
+              onLocationUpdate={(location) => {
+                setUserLocation(location);
+                // Update nearby clinics count when location changes
+                loadNearbyClinics(location);
+              }}
+              autoStart={false}
+              compact={false}
+            />
+          </motion.div>
+
+          {/* AI Assistant CTA */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white h-full">
+              <CardContent className="p-8 flex flex-col justify-center h-full">
+                <div className="flex items-center space-x-4 mb-6">
                   <div className="p-3 bg-white/20 rounded-full">
                     <Brain className="h-8 w-8 text-white" />
                   </div>
@@ -379,7 +398,7 @@ const Dashboard = () => {
                     <p className="text-blue-100">Get instant health guidance for your travel destination and medical needs</p>
                   </div>
                 </div>
-                <Link to="/chat">
+                <Link to="/chat" className="self-start">
                   <Button 
                     size="lg" 
                     className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg"
@@ -388,10 +407,10 @@ const Dashboard = () => {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
       </div>
     </div>
   );

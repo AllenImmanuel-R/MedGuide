@@ -108,7 +108,7 @@ export const reportsAPI = {
     return response.data;
   },
 
-  deleteReport: async (id: string) => {
+  deleteMedicalReport: async (id: string) => {
     const response = await api.delete(`/medical-reports/${id}`);
     return response.data;
   },

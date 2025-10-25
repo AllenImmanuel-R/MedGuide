@@ -31,6 +31,9 @@ class LocationService {
   private currentLocation: UserLocation | null = null;
   private watchId: number | null = null;
   private permissionStatus: LocationPermissionStatus | null = null;
+  private locationCallbacks: Set<(location: UserLocation) => void> = new Set();
+  private errorCallbacks: Set<(error: LocationError) => void> = new Set();
+  private isLiveTracking: boolean = false;
 
   constructor() {
     console.log('📍 Location Service initialized');
@@ -88,14 +91,12 @@ class LocationService {
         return;
       }
 
-      // Optimized options for GPS accuracy
+      // Aggressive GPS options for maximum accuracy
       const options: PositionOptions = {
         enableHighAccuracy: true,    // Force GPS usage over network/WiFi
-        timeout: 30000,              // 30 seconds timeout for GPS lock
+        timeout: 60000,              // 60 seconds timeout for GPS lock (longer for better accuracy)
         maximumAge: 0                // Always get fresh GPS reading, no cache
       };
-
-      console.log('🛰️ Requesting high-accuracy GPS location...');
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -111,28 +112,11 @@ class LocationService {
             source: this.determineLocationSource(position.coords.accuracy)
           };
 
-          // Log detailed GPS information
-          console.log('📍 GPS Location obtained:', { 
-            lat: location.latitude.toFixed(8), 
-            lng: location.longitude.toFixed(8),
-            accuracy: location.accuracy + 'm',
-            altitude: position.coords.altitude ? position.coords.altitude + 'm' : 'N/A',
-            altitudeAccuracy: position.coords.altitudeAccuracy ? position.coords.altitudeAccuracy + 'm' : 'N/A',
-            heading: position.coords.heading ? position.coords.heading + '°' : 'N/A',
-            speed: position.coords.speed ? position.coords.speed + 'm/s' : 'N/A',
-            timestamp: new Date(position.timestamp).toLocaleTimeString()
-          });
-
-          // Determine location source based on accuracy
-          const source = this.determineLocationSource(position.coords.accuracy);
-          console.log(`📡 Location source: ${source}`);
-
           this.currentLocation = location;
           resolve(location);
         },
         (error) => {
           const locationError = this.handleLocationError(error);
-          console.error('❌ GPS Location error:', locationError);
           reject(locationError);
         },
         options
@@ -143,7 +127,7 @@ class LocationService {
   /**
    * Determine the likely source of location data based on accuracy
    */
-  private determineLocationSource(accuracy: number): string {
+  determineLocationSource(accuracy: number): string {
     if (accuracy <= 5) {
       return 'GPS (High Accuracy)';
     } else if (accuracy <= 20) {
@@ -282,15 +266,12 @@ class LocationService {
   /**
    * Get the most accurate GPS location possible by trying multiple times
    */
-  async getHighAccuracyLocation(maxAttempts: number = 3, targetAccuracy: number = 10): Promise<UserLocation> {
-    console.log(`🎯 Attempting to get GPS location with ${targetAccuracy}m accuracy (max ${maxAttempts} attempts)`);
-    
+  async getHighAccuracyLocation(maxAttempts: number = 3, targetAccuracy: number = 20): Promise<UserLocation> {
     let bestLocation: UserLocation | null = null;
     let attempts = 0;
 
     while (attempts < maxAttempts) {
       attempts++;
-      console.log(`🛰️ GPS attempt ${attempts}/${maxAttempts}`);
       
       try {
         const location = await this.getCurrentLocation();
@@ -298,27 +279,21 @@ class LocationService {
         // If this is our first location or it's more accurate than our best
         if (!bestLocation || location.accuracy < bestLocation.accuracy) {
           bestLocation = location;
-          console.log(`✅ New best GPS accuracy: ${location.accuracy}m`);
         }
         
         // If we've reached our target accuracy, return immediately
         if (location.accuracy <= targetAccuracy) {
-          console.log(`🎯 Target GPS accuracy achieved: ${location.accuracy}m`);
           return location;
         }
         
-        // Wait a bit before next attempt to let GPS settle
+        // Wait before next attempt
         if (attempts < maxAttempts) {
-          console.log('⏳ Waiting for GPS to improve...');
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
         
       } catch (error) {
-        console.error(`❌ GPS attempt ${attempts} failed:`, error);
-        
         // If this is our last attempt and we have a previous location, use it
         if (attempts === maxAttempts && bestLocation) {
-          console.log('🔄 Using best available GPS location');
           return bestLocation;
         }
         
@@ -330,12 +305,15 @@ class LocationService {
     }
     
     if (bestLocation) {
-      console.log(`📍 Returning best GPS location found: ${bestLocation.accuracy}m accuracy`);
       return bestLocation;
     }
     
     throw new Error('Failed to obtain GPS location after multiple attempts');
   }
+
+
+
+
 
   /**
    * Convert degrees to radians
@@ -406,6 +384,130 @@ class LocationService {
     this.currentLocation = null;
     this.stopWatchingLocation();
     console.log('🗑️ Location data cleared');
+  }
+
+  /**
+   * Start live GPS tracking with callbacks
+   */
+  startLiveTracking(
+    onLocationUpdate: (location: UserLocation) => void,
+    onError?: (error: LocationError) => void
+  ): boolean {
+    if (this.isLiveTracking) {
+      console.log('📍 Live tracking already active');
+      this.locationCallbacks.add(onLocationUpdate);
+      if (onError) this.errorCallbacks.add(onError);
+      
+      // Send current location immediately if available
+      if (this.currentLocation) {
+        onLocationUpdate(this.currentLocation);
+      }
+      return true;
+    }
+
+    if (!this.isSupported()) {
+      const error: LocationError = {
+        code: 0,
+        message: 'Geolocation not supported',
+        details: 'Browser does not support geolocation'
+      };
+      if (onError) onError(error);
+      return false;
+    }
+
+    // Add callbacks
+    this.locationCallbacks.add(onLocationUpdate);
+    if (onError) this.errorCallbacks.add(onError);
+
+    // Aggressive GPS options for live tracking
+    const options: PositionOptions = {
+      enableHighAccuracy: true,    // Force GPS satellites
+      timeout: 45000,              // 45 seconds timeout per update (longer for GPS lock)
+      maximumAge: 0                // No cached location, always fresh GPS
+    };
+
+    this.watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const location: UserLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: Date.now(),
+          altitude: position.coords.altitude || undefined,
+          altitudeAccuracy: position.coords.altitudeAccuracy || undefined,
+          heading: position.coords.heading || undefined,
+          speed: position.coords.speed || undefined,
+          source: this.determineLocationSource(position.coords.accuracy)
+        };
+
+        this.currentLocation = location;
+
+        // Notify all callbacks
+        this.locationCallbacks.forEach(callback => {
+          try {
+            callback(location);
+          } catch (error) {
+            console.error('Error in location callback:', error);
+          }
+        });
+      },
+      (error) => {
+        const locationError = this.handleLocationError(error);
+        
+        // Notify all error callbacks
+        this.errorCallbacks.forEach(callback => {
+          try {
+            callback(locationError);
+          } catch (err) {
+            console.error('Error in error callback:', err);
+          }
+        });
+      },
+      options
+    );
+
+    this.isLiveTracking = true;
+    return true;
+  }
+
+  /**
+   * Stop live GPS tracking
+   */
+  stopLiveTracking(
+    onLocationUpdate?: (location: UserLocation) => void,
+    onError?: (error: LocationError) => void
+  ): void {
+    // Remove specific callbacks if provided
+    if (onLocationUpdate) {
+      this.locationCallbacks.delete(onLocationUpdate);
+    }
+    if (onError) {
+      this.errorCallbacks.delete(onError);
+    }
+
+    // If no more callbacks, stop tracking completely
+    if (this.locationCallbacks.size === 0) {
+      if (this.watchId !== null) {
+        navigator.geolocation.clearWatch(this.watchId);
+        this.watchId = null;
+      }
+      this.isLiveTracking = false;
+      this.errorCallbacks.clear();
+    }
+  }
+
+  /**
+   * Check if live tracking is active
+   */
+  isLiveTrackingActive(): boolean {
+    return this.isLiveTracking;
+  }
+
+  /**
+   * Get number of active tracking callbacks
+   */
+  getActiveCallbackCount(): number {
+    return this.locationCallbacks.size;
   }
 
   /**

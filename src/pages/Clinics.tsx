@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 
 // Import our real clinic services and components
 import { clinicFinderService, locationService } from '@/services/clinicServices';
+import LiveLocationTracker from '@/components/LiveLocationTracker';
+import { useLiveLocation } from '@/hooks/useLiveLocation';
 import type { Clinic, ClinicSearchOptions, MedicalSpecialization, UserLocation, LocationError } from '@/services/clinicServices';
 
 interface ClinicSearchState {
@@ -41,6 +43,83 @@ const Clinics = () => {
     error: null,
     hasLocationPermission: false
   });
+
+  // Live location tracking
+  const [autoStarted, setAutoStarted] = useState(false);
+  
+  // Handle live location updates
+  const handleLiveLocationUpdate = (location: UserLocation) => {
+    setSearchState(prev => ({
+      ...prev,
+      userLocation: location,
+      hasLocationPermission: true,
+      error: null
+    }));
+
+    // Auto-search for clinics when location updates significantly
+    if (searchState.userLocation) {
+      const distance = locationService.calculateDistance(
+        searchState.userLocation.latitude,
+        searchState.userLocation.longitude,
+        location.latitude,
+        location.longitude
+      );
+      
+      // If moved more than 500m, search for new clinics
+      if (distance > 0.5) {
+        searchNearbyClinics();
+      }
+    } else {
+      // First location update, search for clinics immediately
+      searchNearbyClinics();
+    }
+  };
+
+  // Auto-start location tracking and clinic search when page loads
+  useEffect(() => {
+    const initializeLocationAndSearch = async () => {
+      if (!autoStarted) {
+        setAutoStarted(true);
+        
+        try {
+          // Try to get location immediately
+          setSearchState(prev => ({ ...prev, isLoading: true, error: null }));
+          
+          const location = await locationService.getHighAccuracyLocation(2, 50);
+          
+          setSearchState(prev => ({
+            ...prev,
+            userLocation: location,
+            hasLocationPermission: true,
+            isLoading: false
+          }));
+          
+          // Immediately search for clinics
+          setTimeout(() => {
+            searchNearbyClinics();
+          }, 500);
+          
+          toast({
+            title: i18n.language === 'en' ? 'Location Found' : 'இருப்பிடம் கண்டுபிடிக்கப்பட்டது',
+            description: i18n.language === 'en' 
+              ? 'Searching for nearby healthcare facilities...'
+              : 'அருகிலுள்ள சுகாதார வசதிகளைத் தேடுகிறது...',
+          });
+          
+        } catch (error) {
+          setSearchState(prev => ({
+            ...prev,
+            error: i18n.language === 'en' 
+              ? 'Unable to get your location. Please enable location services.'
+              : 'உங்கள் இருப்பிடத்தைப் பெற முடியவில்லை. இருப்பிட சேவைகளை இயக்கவும்.',
+            isLoading: false
+          }));
+        }
+      }
+    };
+
+    initializeLocationAndSearch();
+  }, [autoStarted, i18n.language, toast]);
   
   // Search filters
   const [maxDistance, setMaxDistance] = useState(5); // km
@@ -84,8 +163,8 @@ const Clinics = () => {
     try {
       setSearchState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Use high-accuracy GPS method for better precision
-      const location = await locationService.getHighAccuracyLocation(3, 15); // 3 attempts, target 15m accuracy
+      // Get high-accuracy GPS location
+      const location = await locationService.getHighAccuracyLocation(3, 20); // 3 attempts, target 20m accuracy
       
       setSearchState(prev => ({
         ...prev,
@@ -354,7 +433,7 @@ const Clinics = () => {
           </p>
         </motion.div>
         
-        {/* Location Status */}
+        {/* Live Location Tracker */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -370,95 +449,43 @@ const Clinics = () => {
             </Alert>
           )}
           
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Location Status</CardTitle>
-              <CardDescription>Your current location for finding nearby healthcare facilities</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${searchState.userLocation ? 'bg-green-500' : 'bg-gray-400'}`} />
-                  <span className="text-gray-900 font-medium">
-                    {searchState.userLocation 
-                      ? (i18n.language === 'en' ? 'Location detected' : 'இருப்பிடம் கண்டறியப்பட்டது')
-                      : (i18n.language === 'en' ? 'Location required' : 'இருப்பிடம் தேவை')
-                    }
-                  </span>
-                  {searchState.userLocation && (
-                    <div className="flex gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs text-green-700 border-green-300 bg-green-50">
-                        📍 {searchState.userLocation.latitude.toFixed(6)}, {searchState.userLocation.longitude.toFixed(6)}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs text-blue-700 border-blue-300 bg-blue-50">
-                        ±{searchState.userLocation.accuracy.toFixed(1)}m
-                      </Badge>
-                      {searchState.userLocation.source && (
-                        <Badge variant="outline" className="text-xs text-purple-700 border-purple-300 bg-purple-50">
-                          {searchState.userLocation.source}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
+          {/* Initial Loading State */}
+          {!searchState.userLocation && !searchState.error && (
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-purple-50">
+              <CardContent className="p-8 text-center">
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    <Target className="w-6 h-6 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {i18n.language === 'en' ? 'Getting Your Location' : 'உங்கள் இருப்பிடத்தைப் பெறுகிறது'}
+                    </h3>
+                    <p className="text-gray-600">
+                      {i18n.language === 'en' 
+                        ? 'Please allow location access to find nearby healthcare facilities'
+                        : 'அருகிலுள்ள சுகாதார வசதிகளைக் கண்டறிய இருப்பிட அணுகலை அனுமதிக்கவும்'
+                      }
+                    </p>
+                  </div>
                 </div>
-                
-                <div className="flex gap-2">
-                  {!searchState.userLocation && (
-                    <Button 
-                      onClick={getUserLocation}
-                      disabled={searchState.isLoading}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                    >
-                      {searchState.isLoading ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Target className="w-4 h-4 mr-2" />
-                      )}
-                      {i18n.language === 'en' ? 'Get Location' : 'இருப்பிடம் பெறவும்'}
-                    </Button>
-                  )}
-                  
-                  {searchState.userLocation && (
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={() => searchNearbyClinics()}
-                        disabled={searchState.isLoading}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                      >
-                        {searchState.isLoading ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Search className="w-4 h-4 mr-2" />
-                        )}
-                        {i18n.language === 'en' ? 'Find Clinics' : 'கிளினிக்குகளைத் தேடுங்கள்'}
-                      </Button>
-                      <Button 
-                        onClick={async () => {
-                          try {
-                            // Clear cached location and get fresh location
-                            locationService.clearLocation();
-                            toast({
-                              title: i18n.language === 'en' ? 'Refreshing Location' : 'இருப்பிடத்தை புதுப்பிக்கிறது',
-                              description: i18n.language === 'en' ? 'Getting your current location...' : 'உங்கள் தற்போதைய இருப்பிடத்தைப் பெறுகிறது...',
-                            });
-                            await getUserLocation();
-                          } catch (error) {
-                            console.error('Error refreshing location:', error);
-                          }
-                        }}
-                        disabled={searchState.isLoading}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Target className="w-4 h-4 mr-2" />
-                        {i18n.language === 'en' ? 'Refresh Location' : 'இருப்பிடத்தை புதுப்பிக்கவும்'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Location Tracker - Only show when location is available */}
+          {searchState.userLocation && (
+            <LiveLocationTracker
+              onLocationUpdate={handleLiveLocationUpdate}
+              onError={(error) => {
+                setSearchState(prev => ({ ...prev, error: error.message }));
+              }}
+              autoStart={true}
+              showMap={false}
+              compact={true}
+            />
+          )}
         </motion.div>
             
 
@@ -552,75 +579,125 @@ const Clinics = () => {
           </Card>
         </motion.div>
 
+            {/* Searching State */}
+            {searchState.userLocation && searchState.isLoading && searchState.clinics.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mb-8"
+              >
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-8 text-center">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="relative">
+                        <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
+                        <Search className="w-5 h-5 text-green-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          {i18n.language === 'en' ? 'Finding Nearby Clinics' : 'அருகிலுள்ள கிளினிக்குகளைக் கண்டறிகிறது'}
+                        </h3>
+                        <p className="text-gray-600">
+                          {i18n.language === 'en' 
+                            ? 'Searching for healthcare facilities in your area...'
+                            : 'உங்கள் பகுதியில் சுகாதார வசதிகளைத் தேடுகிறது...'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {/* Clinic Results */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              {/* Debug Info */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Debug:</strong> Total clinics: {searchState.clinics.length}, Filtered: {filteredClinics.length}, Loading: {searchState.isLoading.toString()}
-                  </p>
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Distance: {maxDistance}km, Min Rating: {minRating}+, Sort: {sortBy}
-                  </p>
-                  {searchState.userLocation && (
-                    <div className="text-xs text-yellow-600 mt-1 space-y-1">
-                      <p>
-                        <strong>GPS Location:</strong> {searchState.userLocation.latitude.toFixed(8)}, {searchState.userLocation.longitude.toFixed(8)}
-                      </p>
-                      <p>
-                        <strong>Accuracy:</strong> {searchState.userLocation.accuracy.toFixed(1)}m | 
-                        <strong> Source:</strong> {searchState.userLocation.source || 'Unknown'}
-                      </p>
-                      {searchState.userLocation.altitude && (
-                        <p>
-                          <strong>Altitude:</strong> {searchState.userLocation.altitude.toFixed(1)}m
-                          {searchState.userLocation.altitudeAccuracy && ` (±${searchState.userLocation.altitudeAccuracy.toFixed(1)}m)`}
-                        </p>
-                      )}
-                      {(searchState.userLocation.speed !== undefined || searchState.userLocation.heading !== undefined) && (
-                        <p>
-                          {searchState.userLocation.speed !== undefined && (
-                            <span><strong>Speed:</strong> {(searchState.userLocation.speed * 3.6).toFixed(1)} km/h | </span>
-                          )}
-                          {searchState.userLocation.heading !== undefined && (
-                            <span><strong>Heading:</strong> {searchState.userLocation.heading.toFixed(0)}°</span>
-                          )}
-                        </p>
-                      )}
-                      <button 
-                        onClick={() => {
-                          const url = `https://www.google.com/maps/search/${searchState.userLocation!.latitude},${searchState.userLocation!.longitude}`;
-                          window.open(url, '_blank');
-                        }}
-                        className="text-blue-600 underline hover:text-blue-800"
-                      >
-                        📍 View My GPS Location on Map
-                      </button>
-                    </div>
-                  )}
-                  {filteredClinics.length > 0 && (
-                    <p className="text-xs text-yellow-600 mt-1">
-                      <strong>First Clinic:</strong> {filteredClinics[0].name} at {filteredClinics[0].latitude.toFixed(6)}, {filteredClinics[0].longitude.toFixed(6)}
-                    </p>
-                  )}
-                </div>
-              )}
-
               {searchState.clinics.length > 0 && (
-                <div className="space-y-4">
-                  {/* Results Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      {i18n.language === 'en' 
-                        ? `Found ${filteredClinics.length} nearby clinics` 
-                        : `${filteredClinics.length} அருகிலுள்ள கிளினிக்குகள் கண்டுபிடிக்கப்பட்டன`
-                      }
-                    </h3>
+                <div className="space-y-6">
+                  {/* Results Summary */}
+                  <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-blue-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                            {i18n.language === 'en' 
+                              ? `Found ${filteredClinics.length} Healthcare Facilities` 
+                              : `${filteredClinics.length} சுகாதார வசதிகள் கண்டுபிடிக்கப்பட்டன`
+                            }
+                          </h3>
+                          <p className="text-gray-600">
+                            {i18n.language === 'en' 
+                              ? `Within ${maxDistance}km of your location • Minimum ${minRating}+ star rating • Sorted by ${sortBy}`
+                              : `உங்கள் இருப்பிடத்திலிருந்து ${maxDistance}கிமீ வரை • குறைந்தபட்சம் ${minRating}+ நட்சத்திர மதிப்பீடு • ${sortBy} அடிப்படையில் வரிசைப்படுத்தப்பட்டது`
+                            }
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-green-600">
+                            {filteredClinics.filter(c => c.emergencyServices).length}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {i18n.language === 'en' ? 'Emergency Services' : 'அவசர சேவைகள்'}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Actions */}
+                  <div className="flex flex-wrap gap-3 justify-center mb-6">
+                    <Button
+                      onClick={() => {
+                        const emergencyClinics = filteredClinics.filter(c => c.emergencyServices);
+                        if (emergencyClinics.length > 0) {
+                          const nearest = emergencyClinics[0];
+                          if (searchState.userLocation) {
+                            const url = `https://www.google.com/maps/dir/${searchState.userLocation.latitude},${searchState.userLocation.longitude}/${nearest.latitude},${nearest.longitude}`;
+                            window.open(url, '_blank');
+                          }
+                        }
+                      }}
+                      disabled={filteredClinics.filter(c => c.emergencyServices).length === 0}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      {i18n.language === 'en' ? 'Nearest Emergency' : 'அருகிலுள்ள அவசரம்'}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        const topRated = [...filteredClinics].sort((a, b) => b.rating - a.rating)[0];
+                        if (topRated && searchState.userLocation) {
+                          const url = `https://www.google.com/maps/dir/${searchState.userLocation.latitude},${searchState.userLocation.longitude}/${topRated.latitude},${topRated.longitude}`;
+                          window.open(url, '_blank');
+                        }
+                      }}
+                      disabled={filteredClinics.length === 0}
+                      variant="outline"
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      {i18n.language === 'en' ? 'Highest Rated' : 'அதிக மதிப்பீடு'}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        const nearest = filteredClinics[0];
+                        if (nearest && searchState.userLocation) {
+                          const url = `https://www.google.com/maps/dir/${searchState.userLocation.latitude},${searchState.userLocation.longitude}/${nearest.latitude},${nearest.longitude}`;
+                          window.open(url, '_blank');
+                        }
+                      }}
+                      disabled={filteredClinics.length === 0}
+                      variant="outline"
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      {i18n.language === 'en' ? 'Nearest Clinic' : 'அருகிலுள்ள கிளினிக்'}
+                    </Button>
                   </div>
 
                   {/* Clinic Cards */}
@@ -711,23 +788,12 @@ const Clinics = () => {
                           )}
                           <Button
                             onClick={() => {
-                              // Try multiple approaches for better directions
+                              // Open directions to clinic
                               if (searchState.userLocation) {
-                                // Method 1: Use both origin and destination
                                 const url = `https://www.google.com/maps/dir/${searchState.userLocation.latitude},${searchState.userLocation.longitude}/${clinic.latitude},${clinic.longitude}`;
-                                console.log('🗺️ Opening directions with origin and destination:', {
-                                  origin: `${searchState.userLocation.latitude},${searchState.userLocation.longitude}`,
-                                  destination: `${clinic.latitude},${clinic.longitude}`,
-                                  url
-                                });
                                 window.open(url, '_blank');
                               } else {
-                                // Method 2: Just destination, let Google Maps use device location
                                 const url = `https://www.google.com/maps/search/${clinic.latitude},${clinic.longitude}`;
-                                console.log('🗺️ Opening clinic location (no origin):', {
-                                  destination: `${clinic.latitude},${clinic.longitude}`,
-                                  url
-                                });
                                 window.open(url, '_blank');
                               }
                             }}
