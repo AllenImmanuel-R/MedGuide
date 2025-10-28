@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     strictPort: true, // Fail if port 8080 is not available
   },
+  preview: {
+    host: true,
+    port: 8080,
+    strictPort: false,
+  },
   plugins: [react()],
   resolve: {
     alias: {
