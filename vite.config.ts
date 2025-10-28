@@ -5,14 +5,23 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: true,
     port: 8080,
-    strictPort: true, // Fail if port 8080 is not available
+    strictPort: true,
+    allowedHosts: [
+      'localhost',
+      '.onrender.com', // Allow all Render.com subdomains
+      'medguide-tf9d.onrender.com',
+    ],
   },
   preview: {
     host: true,
     port: 8080,
     strictPort: false,
+    allowedHosts: [
+      'localhost',
+      '.onrender.com', // Allow all Render.com subdomains
+    ],
   },
   plugins: [react()],
   resolve: {
