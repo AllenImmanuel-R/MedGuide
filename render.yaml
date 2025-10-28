@@ -36,6 +36,15 @@ services:
     plan: free
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    buildFilter:
+      paths:
+        - src/**
+        - public/**
+        - index.html
+        - vite.config.ts
+        - package.json
+        - tsconfig.json
+        - tsconfig.app.json
     headers:
       - path: /*
         name: Cache-Control
