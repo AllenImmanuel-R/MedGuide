@@ -36,7 +36,6 @@ class LocationService {
   private isLiveTracking: boolean = false;
 
   constructor() {
-    console.log('📍 Location Service initialized');
     this.checkPermissionStatus();
   }
 
@@ -59,8 +58,6 @@ class LocationService {
           denied: permission.state === 'denied',
           prompt: permission.state === 'prompt'
         };
-        
-        console.log('🔐 Location permission status:', permission.state);
         return this.permissionStatus;
       } catch (error) {
         console.warn('⚠️ Could not check permission status:', error);
@@ -73,7 +70,6 @@ class LocationService {
       denied: false,
       prompt: true
     };
-    
     return this.permissionStatus;
   }
 
@@ -161,8 +157,6 @@ class LocationService {
       maximumAge: 5000             // Accept cached location up to 5 seconds old
     };
 
-    console.log('🛰️ Starting continuous GPS tracking...');
-
     this.watchId = navigator.geolocation.watchPosition(
       (position) => {
         const location: UserLocation = {
@@ -178,20 +172,11 @@ class LocationService {
         };
 
         const source = this.determineLocationSource(position.coords.accuracy);
-        console.log('📍 GPS Update:', { 
-          lat: location.latitude.toFixed(8), 
-          lng: location.longitude.toFixed(8),
-          accuracy: location.accuracy + 'm',
-          source: source,
-          time: new Date().toLocaleTimeString()
-        });
-
         this.currentLocation = location;
         callback(location);
       },
       (error) => {
         const locationError = this.handleLocationError(error);
-        console.error('❌ GPS Tracking error:', locationError);
         if (errorCallback) {
           errorCallback(locationError);
         }
@@ -199,7 +184,6 @@ class LocationService {
       options
     );
 
-    console.log('👁️ GPS tracking started');
     return true;
   }
 
@@ -210,7 +194,6 @@ class LocationService {
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
-      console.log('🛑 Stopped watching location');
     }
   }
 
@@ -242,7 +225,6 @@ class LocationService {
     const age = Date.now() - this.currentLocation.timestamp;
     
     if (age > maxAge) {
-      console.log('📍 Cached location too old, clearing cache');
       this.currentLocation = null;
       return null;
     }
@@ -256,7 +238,6 @@ class LocationService {
   async getLocationWithCache(): Promise<UserLocation> {
     const cached = this.getCachedLocation();
     if (cached) {
-      console.log('📍 Using cached GPS location');
       return cached;
     }
     
@@ -310,10 +291,6 @@ class LocationService {
     
     throw new Error('Failed to obtain GPS location after multiple attempts');
   }
-
-
-
-
 
   /**
    * Convert degrees to radians
@@ -383,7 +360,6 @@ class LocationService {
   clearLocation(): void {
     this.currentLocation = null;
     this.stopWatchingLocation();
-    console.log('🗑️ Location data cleared');
   }
 
   /**
@@ -394,7 +370,6 @@ class LocationService {
     onError?: (error: LocationError) => void
   ): boolean {
     if (this.isLiveTracking) {
-      console.log('📍 Live tracking already active');
       this.locationCallbacks.add(onLocationUpdate);
       if (onError) this.errorCallbacks.add(onError);
       

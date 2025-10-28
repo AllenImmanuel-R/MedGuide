@@ -93,7 +93,6 @@ class ClinicFinderService {
   constructor(locationService: LocationService) {
     this.locationService = locationService;
     this.initializeSpecializations();
-    console.log('🏥 Clinic Finder Service initialized with Overpass API integration');
   }
 
   /**
@@ -147,8 +146,6 @@ class ClinicFinderService {
       const apiUrl = this.overpassApiUrls[(this.currentApiIndex + attempt) % this.overpassApiUrls.length];
       
       try {
-        console.log(`🔍 Attempting Overpass API: ${apiUrl.split('/')[2]} (attempt ${attempt + 1})`);
-        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout
         
@@ -171,13 +168,11 @@ class ClinicFinderService {
         
         // Success - update current API index for next time
         this.currentApiIndex = (this.currentApiIndex + attempt) % this.overpassApiUrls.length;
-        console.log(`✅ Overpass API success: ${data.elements?.length || 0} elements found`);
         
         return data;
         
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(`Unknown error: ${error}`);
-        console.warn(`❌ Overpass API ${apiUrl.split('/')[2]} failed:`, lastError.message);
         
         // If this was an abort (timeout), try next server immediately
         if (lastError.name === 'AbortError') {
@@ -257,9 +252,9 @@ class ClinicFinderService {
       pincode: tags['addr:postcode'],
       latitude: lat,
       longitude: lon,
-      phone: tags.phone || tags.contact?.phone,
-      email: tags.email || tags.contact?.email,
-      website: tags.website || tags.contact?.website,
+      phone: tags.phone || tags['contact:phone'],
+      email: tags.email || tags['contact:email'],
+      website: tags.website || tags['contact:website'],
       amenity: tags.amenity,
       specializations,
       services,
@@ -547,7 +542,6 @@ class ClinicFinderService {
       const userLocation = await this.locationService.getLocationWithCache();
       return this.searchClinicsWithOverpass(userLocation, options);
     } catch (error) {
-      console.error('❌ Failed to get location for clinic search:', error);
       throw new Error('Location required for clinic search. Please enable location access.');
     }
   }
@@ -571,13 +565,10 @@ class ClinicFinderService {
     const cached = this.cache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < this.cacheTimeout) {
-      console.log('📋 Using cached clinic data');
       return this.applyFiltersAndSort(cached.data, userLocation, options);
     }
 
     try {
-      console.log(`🏥 Searching clinics via Overpass API within ${maxDistance}m`);
-      
       // Build and execute Overpass query
       const query = this.buildOverpassQuery(
         userLocation.latitude, 
@@ -586,10 +577,7 @@ class ClinicFinderService {
         specialization
       );
       
-      console.log('🔍 Overpass query:', query.replace(/\s+/g, ' ').trim());
-      
       const response = await this.queryOverpassAPI(query);
-      console.log(`📊 Found ${response.elements?.length || 0} healthcare facilities`);
       
       // Convert elements to clinics
       const clinics: Clinic[] = [];
@@ -609,13 +597,6 @@ class ClinicFinderService {
         }
       }
       
-      console.log(`✅ Converted ${clinics.length} valid clinics`);
-      
-      // If no results and radius is small, suggest expanding
-      if (clinics.length === 0 && maxDistance < 10000) {
-        console.log('💡 No clinics found, consider expanding search radius');
-      }
-      
       // Cache the results
       this.cache.set(cacheKey, {
         data: clinics,
@@ -625,8 +606,6 @@ class ClinicFinderService {
       return this.applyFiltersAndSort(clinics, userLocation, options);
       
     } catch (error) {
-      console.error('❌ Overpass API error:', error);
-      
       // Provide more helpful error messages
       if (error instanceof Error) {
         if (error.name === 'AbortError' || error.message.includes('timeout')) {
@@ -821,7 +800,6 @@ class ClinicFinderService {
    */
   clearCache(): void {
     this.cache.clear();
-    console.log('🗑️ Clinic cache cleared');
   }
 
   /**

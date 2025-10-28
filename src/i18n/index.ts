@@ -12,7 +12,7 @@ i18n
   .init({
     lng: 'en', // Default language
     fallbackLng: 'en',
-    debug: import.meta.env.DEV,
+    debug: false,
     
     ns: ['common', 'chat', 'about'], // Namespaces
     defaultNS: 'common',

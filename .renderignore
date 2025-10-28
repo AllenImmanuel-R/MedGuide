@@ -1,0 +1,42 @@
+# Files and directories to ignore during Render deployment
+
+# Development files
+*.md
+!README.md
+!DEPLOYMENT.md
+
+# Test files
+test-*.html
+test-*.js
+debug-*.html
+debug-*.js
+check-database-reports.js
+create-test-reports.js
+
+# Documentation
+docs/
+*.md
+WARP.md
+CHATBOT_*.md
+AUTHENTICATION_SETUP.md
+VOICE_*.md
+ENHANCED_*.md
+FINAL_IMPLEMENTATION.md
+INPUT_BOX_FIX.md
+SOLUTION-SUMMARY.md
+REPORT-ANALYSIS-INTEGRATION.md
+
+# Demo files
+language-button-demo.html
+
+# Local environment
+.env.local
+.env.development
+
+# Editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
