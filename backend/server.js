@@ -22,11 +22,34 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // Enable CORS
-app.use(cors({
-  origin: [process.env.CLIENT_URL || 'http://localhost:8080', 'http://localhost:3000'],
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:8080',
+  'http://localhost:3000',
+  'http://127.0.0.1:8080'
+];
+
+if ((process.env.NODE_ENV || 'development') !== 'production') {
+  app.use(cors({
+    origin: function (_origin, callback) {
+      return callback(null, true);
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+  }));
+} else {
+  app.use(cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      const lanRegex = /^http:\/\/(localhost|127\.0\.0\.1|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]+\.[0-9]+):[0-9]+$/;
+      if (allowedOrigins.includes(origin) || lanRegex.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+  }));
+}
 
 // Static: serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

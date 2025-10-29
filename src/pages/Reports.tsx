@@ -199,7 +199,7 @@ const Reports = () => {
     if (!confirm('Are you sure you want to delete this report?')) return;
     
     try {
-      await reportsAPI.deleteReport(report._id);
+      await reportsAPI.deleteMedicalReport(report._id);
       setReports(prev => prev.filter(r => r._id !== report._id));
       toast({
         title: 'Report deleted',

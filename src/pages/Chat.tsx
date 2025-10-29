@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, User, Loader2, MessageCircle, Moon, Sun, Plus, Home, MapPin } from "lucide-react";
+import { Send, Bot, User, Loader2, MessageCircle, Moon, Sun, Plus, Home, MapPin, ImagePlus, X, Mic, MicOff, Volume2, VolumeX, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,17 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  imageUrl?: string;
+  imageData?: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  conversationHistory: Array<{role: 'user' | 'assistant', content: string}>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const Chat = () => {
@@ -30,7 +41,18 @@ const Chat = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -43,17 +65,279 @@ const Chat = () => {
     return null;
   });
 
-  // Initialize welcome message
+  // Initialize speech synthesis and recognition
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      synthesisRef.current = window.speechSynthesis;
+      
+      // Initialize speech recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = i18n.language === 'en' ? 'en-US' : 'ta-IN';
+        
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          console.log('🎤 Voice input:', transcript);
+          setInputMessage(transcript);
+          setIsListening(false);
+        };
+        
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('❌ Speech recognition error:', event.error);
+          setIsListening(false);
+          toast({
+            title: i18n.language === 'en' ? 'Voice Error' : 'குரல் பிழை',
+            description: i18n.language === 'en' ? 'Could not recognize speech' : 'பேச்சை அடையாளம் காண முடியவில்லை',
+            variant: 'destructive'
+          });
+        };
+        
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
+    }
+    
+    return () => {
+      // Cleanup
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (synthesisRef.current) {
+        synthesisRef.current.cancel();
+      }
+    };
+  }, [i18n.language, toast]);
+
+  // Speak text using text-to-speech in specified language
+  const speakTextInLanguage = (text: string, lang: 'en' | 'ta') => {
+    if (!synthesisRef.current || !voiceEnabled) return;
+    
+    // Cancel any ongoing speech
+    synthesisRef.current.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'en' ? 'en-US' : 'ta-IN';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    console.log(`🔊 Speaking in ${lang === 'en' ? 'English' : 'Tamil'}`);
+    synthesisRef.current.speak(utterance);
+  };
+
+  // Toggle voice input (microphone)
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      toast({
+        title: i18n.language === 'en' ? 'Not Supported' : 'ஆதரிக்கப்படவில்லை',
+        description: i18n.language === 'en' 
+          ? 'Voice input is not supported in this browser' 
+          : 'இந்த உலாவியில் குரல் உள்ளீடு ஆதரிக்கப்படவில்லை',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.lang = i18n.language === 'en' ? 'en-US' : 'ta-IN';
+        recognitionRef.current.start();
+        setIsListening(true);
+        toast({
+          title: i18n.language === 'en' ? 'Listening...' : 'கேட்கிறது...',
+          description: i18n.language === 'en' ? 'Speak now' : 'இப்போது பேசுங்கள்',
+        });
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        setIsListening(false);
+      }
+    }
+  };
+
+  // Toggle voice output
+  const toggleVoiceOutput = () => {
+    const newState = !voiceEnabled;
+    setVoiceEnabled(newState);
+    
+    if (!newState && synthesisRef.current) {
+      synthesisRef.current.cancel();
+      setIsSpeaking(false);
+    }
+    
+    toast({
+      title: i18n.language === 'en' ? 'Voice Output' : 'குரல் வெளியீடு',
+      description: i18n.language === 'en' 
+        ? (newState ? 'Voice output enabled' : 'Voice output disabled')
+        : (newState ? 'குரல் வெளியீடு இயக்கப்பட்டது' : 'குரல் வெளியீடு முடக்கப்பட்டது'),
+    });
+  };
+
+  // Load all conversations from localStorage on mount
+  useEffect(() => {
+    const loadConversations = () => {
+      try {
+        const savedConversations = localStorage.getItem('medguide_conversations');
+        const lastConversationId = localStorage.getItem('medguide_last_conversation_id');
+        
+        if (savedConversations) {
+          const parsed: Conversation[] = JSON.parse(savedConversations);
+          setConversations(parsed);
+          
+          // Load the last active conversation or the most recent one
+          const conversationToLoad = lastConversationId 
+            ? parsed.find(c => c.id === lastConversationId) || parsed[0]
+            : parsed[0];
+          
+          if (conversationToLoad) {
+            console.log('📚 Loaded conversation:', conversationToLoad.title);
+            setMessages(conversationToLoad.messages);
+            setConversationHistory(conversationToLoad.conversationHistory);
+            setCurrentConversationId(conversationToLoad.id);
+            setIsHistoryLoaded(true);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading conversations:', error);
+      }
+      
+      // If no conversations, start a new one
+      startNewConversation();
+    };
+    
+    loadConversations();
+  }, []);
+  
+  // Update welcome message when language changes (but keep history)
+  useEffect(() => {
+    if (!isHistoryLoaded) return;
+    
+    // Only update welcome message if it's the only message
+    if (messages.length === 1 && messages[0].role === 'assistant') {
+      const welcomeMessage: Message = {
+        id: "1",
+        role: "assistant",
+        content: getWelcomeMessage(),
+        createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, [i18n.language, isHistoryLoaded]);
+  
+  // Save current conversation whenever messages change
+  useEffect(() => {
+    if (!isHistoryLoaded || !currentConversationId) return;
+    
+    try {
+      const updatedConversations = conversations.map(conv => {
+        if (conv.id === currentConversationId) {
+          return {
+            ...conv,
+            messages,
+            conversationHistory,
+            updatedAt: new Date().toISOString(),
+            // Auto-generate title from first user message if still default
+            title: conv.title.startsWith('New Chat') && messages.length > 1 && messages[1]?.role === 'user'
+              ? generateTitle(messages[1].content)
+              : conv.title
+          };
+        }
+        return conv;
+      });
+      
+      setConversations(updatedConversations);
+      localStorage.setItem('medguide_conversations', JSON.stringify(updatedConversations));
+      localStorage.setItem('medguide_last_conversation_id', currentConversationId);
+      console.log('💾 Saved conversation:', currentConversationId);
+    } catch (error) {
+      console.error('❌ Error saving conversation:', error);
+    }
+  }, [messages, conversationHistory, isHistoryLoaded, currentConversationId]);
+  
+  // Generate conversation title from first message
+  const generateTitle = (message: string): string => {
+    const maxLength = 30;
+    const cleaned = message.trim().replace(/\n/g, ' ');
+    return cleaned.length > maxLength 
+      ? cleaned.substring(0, maxLength) + '...'
+      : cleaned;
+  };
+  
+  // Start a new conversation
+  const startNewConversation = () => {
     const welcomeMessage: Message = {
       id: "1",
       role: "assistant",
       content: getWelcomeMessage(),
       createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
+    
+    const newConversation: Conversation = {
+      id: Date.now().toString(),
+      title: i18n.language === 'en' ? 'New Chat' : 'புதிய உரையாடல்',
+      messages: [welcomeMessage],
+      conversationHistory: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    const updatedConversations = [newConversation, ...conversations];
+    setConversations(updatedConversations);
     setMessages([welcomeMessage]);
-    setConversationHistory([]); // Clear history when language changes
-  }, [i18n.language]);
+    setConversationHistory([]);
+    setCurrentConversationId(newConversation.id);
+    setIsHistoryLoaded(true);
+    
+    localStorage.setItem('medguide_conversations', JSON.stringify(updatedConversations));
+    localStorage.setItem('medguide_last_conversation_id', newConversation.id);
+    
+    console.log('✨ Started new conversation:', newConversation.id);
+  };
+  
+  // Load a specific conversation
+  const loadConversation = (conversationId: string) => {
+    const conversation = conversations.find(c => c.id === conversationId);
+    if (conversation) {
+      setMessages(conversation.messages);
+      setConversationHistory(conversation.conversationHistory);
+      setCurrentConversationId(conversation.id);
+      localStorage.setItem('medguide_last_conversation_id', conversation.id);
+      console.log('📂 Loaded conversation:', conversation.title);
+    }
+  };
+  
+  // Delete a conversation
+  const deleteConversation = (conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const updatedConversations = conversations.filter(c => c.id !== conversationId);
+    setConversations(updatedConversations);
+    localStorage.setItem('medguide_conversations', JSON.stringify(updatedConversations));
+    
+    // If deleting current conversation, load another or start new
+    if (conversationId === currentConversationId) {
+      if (updatedConversations.length > 0) {
+        loadConversation(updatedConversations[0].id);
+      } else {
+        startNewConversation();
+      }
+    }
+    
+    toast({
+      title: i18n.language === 'en' ? 'Chat Deleted' : 'உரையாடல் நீக்கப்பட்டது',
+      description: i18n.language === 'en' ? 'Conversation removed' : 'உரையாடல் அகற்றப்பட்டது',
+    });
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -66,35 +350,131 @@ const Chat = () => {
       : "வணக்கம்! நான் மெட்கைட், Gemini ஆல் இயக்கப்படும் உங்கள் AI சுகாதார உதவியாளர். மருத்துவ கேள்விகள், பயண சுகாதார ஆலோசனை, அறிகுறி பகுப்பாய்வு மற்றும் பலவற்றில் நான் உங்களுக்கு உதவ முடியும். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?";
   };
 
+  // Detect language from user's message
+  const detectLanguage = (text: string): 'en' | 'ta' => {
+    if (!text) return 'en';
+    
+    // Check for Tamil Unicode characters (Tamil script range: U+0B80 to U+0BFF)
+    const tamilPattern = /[\u0B80-\u0BFF]/;
+    const hasTamil = tamilPattern.test(text);
+    
+    if (hasTamil) {
+      console.log('🌐 Detected Tamil language from user message');
+      return 'ta';
+    }
+    
+    console.log('🌐 Detected English language from user message');
+    return 'en';
+  };
+
   // Fallback Gemini AI function
-  const getGeminiResponse = async (message: string): Promise<string> => {
+  const getGeminiResponse = async (message: string, imageData?: string): Promise<string> => {
     if (!geminiAI) {
       throw new Error('Gemini AI not initialized');
     }
 
-    const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = geminiAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
+    
+    // Detect language from user's message
+    const detectedLang = detectLanguage(message);
     
     // Create health-focused prompt
     const healthPrompt = `You are MedGuide, a helpful AI health assistant. Please provide accurate, helpful health information while always reminding users to consult healthcare professionals for serious concerns. 
 
+${imageData ? 'The user has shared a medical image. Please analyze it and provide insights.' : ''}
+
 User message: ${message}
 
-Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep your response informative but concise, and always include appropriate medical disclaimers.`;
+IMPORTANT: Respond in the SAME language as the user's message. The user wrote in ${detectedLang === 'en' ? 'English' : 'Tamil (தமிழ்)'}, so you MUST respond entirely in ${detectedLang === 'en' ? 'English' : 'Tamil'}. Keep your response informative but concise, and always include appropriate medical disclaimers.`;
 
-    const result = await model.generateContent(healthPrompt);
+    let result;
+    if (imageData) {
+      // For images, use vision model
+      const imagePart = {
+        inlineData: {
+          data: imageData.split(',')[1], // Remove data:image/jpeg;base64, prefix
+          mimeType: imageData.split(';')[0].split(':')[1]
+        }
+      };
+      result = await model.generateContent([healthPrompt, imagePart]);
+    } else {
+      result = await model.generateContent(healthPrompt);
+    }
+    
     const response = result.response;
     return response.text();
   };
 
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: i18n.language === 'en' ? 'Invalid file' : 'தவறான கோப்பு',
+          description: i18n.language === 'en' ? 'Please select an image file' : 'படக் கோப்பைத் தேர்ந்தெடுக்கவும்',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      // Check file size (max 4MB)
+      if (file.size > 4 * 1024 * 1024) {
+        toast({
+          title: i18n.language === 'en' ? 'File too large' : 'கோப்பு மிகப் பெரியது',
+          description: i18n.language === 'en' ? 'Please select an image under 4MB' : '4MB க்கு குறைவான படத்தைத் தேர்ந்தெடுக்கவும்',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove selected image
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Convert image to base64
+  const imageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSendMessage = async (message?: string) => {
     const messageToSend = message || inputMessage.trim();
-    if (!messageToSend || isLoading) return;
+    if ((!messageToSend && !selectedImage) || isLoading) return;
+
+    let imageData: string | undefined;
+    if (selectedImage) {
+      imageData = await imageToBase64(selectedImage);
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: messageToSend,
+      content: messageToSend || (i18n.language === 'en' ? 'Please analyze this image' : 'இந்த படத்தை பகுப்பாய்வு செய்யவும்'),
       createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      imageUrl: imagePreview || undefined,
+      imageData: imageData
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -104,18 +484,24 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
     setConversationHistory(prev => [...prev, newUserHistory]);
     
     setInputMessage('');
+    handleRemoveImage(); // Clear image after sending
     setIsLoading(true);
 
     try {
       let responseContent = '';
+      
+      // Detect language from user's message
+      const detectedLang = detectLanguage(messageToSend);
+      console.log(`🌐 User message language: ${detectedLang === 'en' ? 'English' : 'Tamil'}`);
       
       try {
         // First, try the backend API
         console.log('🔄 Trying backend API...');
         const response = await aiAPI.chat(messageToSend, {
           conversationHistory,
-          language: i18n.language,
-          userId: user?.id || 'anonymous'
+          language: detectedLang, // Use detected language from user's message
+          userId: user?.id || 'anonymous',
+          imageData: imageData
         });
         
         if (response.success && response.data) {
@@ -128,7 +514,7 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
         console.log('⚠️ Backend API failed, trying direct Gemini...', backendError);
         
         // Fallback to direct Gemini API
-        responseContent = await getGeminiResponse(messageToSend);
+        responseContent = await getGeminiResponse(messageToSend, imageData);
         console.log('✅ Direct Gemini API successful');
         
         // Show a toast to inform user about fallback
@@ -169,9 +555,25 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
       
       setMessages((prev) => [...prev, assistantMessage]);
       
+      // Speak response if voice is enabled (in detected language)
+      if (voiceEnabled) {
+        // Remove markdown formatting for better speech
+        const cleanText = responseContent
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/#{1,6}\s/g, '')
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+          .replace(/```[\s\S]*?```/g, '')
+          .replace(/`([^`]+)`/g, '$1');
+        
+        // Speak in the detected language
+        const voiceLang = detectLanguage(responseContent);
+        speakTextInLanguage(cleanText, voiceLang);
+      }
+      
       // Add assistant response to conversation history
       const newBotHistory = { role: 'assistant' as const, content: responseContent };
-      setConversationHistory(prev => [...prev, newUserHistory, newBotHistory]);
+      setConversationHistory(prev => [...prev, newBotHistory]);
       
     } catch (error) {
       console.error('❌ All AI methods failed:', error);
@@ -248,14 +650,12 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
   };
 
   const handleClearConversation = () => {
-    const welcomeMessage: Message = {
-      id: "1",
-      role: "assistant",
-      content: getWelcomeMessage(),
-      createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-    setMessages([welcomeMessage]);
-    setConversationHistory([]);
+    startNewConversation();
+    
+    toast({
+      title: i18n.language === 'en' ? 'New Chat Started' : 'புதிய உரையாடல் தொடங்கப்பட்டது',
+      description: i18n.language === 'en' ? 'Previous chat saved in history' : 'முந்தைய உரையாடல் வரலாற்றில் சேமிக்கப்பட்டது',
+    });
   };
 
   // Function to suggest nearby clinics based on symptoms
@@ -264,9 +664,27 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
       // Get symptom analysis
       const suggestions = clinicFinderService.suggestClinicsBySymptoms(symptoms, i18n.language as 'en' | 'ta');
       
-      // Find nearby clinics
+      // Request fresh location permission to ensure we get the user's actual location
+      console.log('📍 Requesting location permission for clinic search...');
+      
+      try {
+        // Force a fresh location request (not cached)
+        const { locationService } = await import('@/services/clinicServices');
+        await locationService.getCurrentLocation();
+      } catch (locError) {
+        console.warn('⚠️ Location permission not granted:', locError);
+        toast({
+          title: i18n.language === 'en' ? 'Location Required' : 'இருப்பிடம் தேவை',
+          description: i18n.language === 'en' 
+            ? 'Please allow location access to find nearby clinics'
+            : 'அருகிலுள்ள கிளினிக்குகளைக் கண்டுபிடிக்க இருப்பிட அணுகலை அனுமதிக்கவும்',
+          variant: 'default'
+        });
+      }
+      
+      // Find nearby clinics based on current GPS location
       const clinics = await clinicFinderService.findNearbyClinics({
-        maxDistance: 5000, // 5km radius
+        maxDistance: 10000, // Increase to 10km radius for better results
         limit: 5,
         sortBy: 'distance'
       });
@@ -336,8 +754,8 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
 
       } else {
         response += i18n.language === 'en'
-          ? "I couldn't find nearby clinics at the moment. This might be due to:\n• Location services not enabled\n• No healthcare facilities in the immediate area\n• Temporary service issues\n\nPlease try enabling location access or search for clinics manually."
-          : "தற்போது அருகிலுள்ள கிளினிக்குகளை என்னால் கண்டுபிடிக்க முடியவில்லை. இது இதன் காரணமாக இருக்கலாம்:\n• இருப்பிட சேவைகள் இயக்கப்படவில்லை\n• உடனடி பகுதியில் சுகாதார வசதிகள் இல்லை\n• தற்காலிக சேவை சிக்கல்கள்\n\nதயவுசெய்து இருப்பிட அணுகலை இயக்க முயற்சிக்கவும் அல்லது கிளினிக்குகளை கைமுறையாக தேடவும்.";
+          ? "❌ **No nearby clinics found**\n\n**Possible reasons:**\n• 📍 Location access not granted - Please allow location permission in your browser\n• 🌍 No healthcare facilities within 10km radius\n• 🔌 Temporary API service issues\n\n**What to try:**\n1. Click the 🔒 icon in your browser's address bar\n2. Enable location access for this site\n3. Reload the page and try again\n4. Or visit the Clinics page to search manually\n\nFor emergencies, call **108** immediately."
+          : "❌ **அருகிலுள்ள கிளினிக்குகள் கிடைக்கவில்லை**\n\n**சாத்தியமான காரணங்கள்:**\n• 📍 இருப்பிட அணுகல் வழங்கப்படவில்லை - உங்கள் உலாவியில் இருப்பிட அனுமதியை அனுமதிக்கவும்\n• 🌍 10 கிமீ சுற்றளவில் சுகாதார வசதிகள் இல்லை\n• 🔌 தற்காலிக API சேவை சிக்கல்கள்\n\n**முயற்சிக்க வேண்டியவை:**\n1. உங்கள் உலாவியின் முகவரி பட்டியில் 🔒 ஐகானைக் கிளிக் செய்யவும்\n2. இந்த தளத்திற்கான இருப்பிட அணுகலை இயக்கவும்\n3. பக்கத்தை மீண்டும் ஏற்றி மீண்டும் முயற்சிக்கவும்\n4. அல்லது கைமுறையாக தேட கிளினிக்குகள் பக்கத்தைப் பார்வையிடவும்\n\nஅவசரநிலைகளுக்கு, உடனடியாக **108** ஐ அழைக்கவும்.";
       }
 
       return response;
@@ -370,22 +788,35 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
         {/* Chat History */}
         <div className="flex-1 overflow-y-auto p-2">
           <div className="space-y-1">
-            {[
-              { en: 'Find nearby clinics', ta: 'அருகிலுள்ள கிளினிக்குகள்' },
-              { en: 'Headache remedies', ta: 'தலைவலி தீர்வுகள்' },
-              { en: 'Travel health advice', ta: 'பயண சுகாதார ஆலோசனை' },
-              { en: 'Emergency services', ta: 'அவசர சேவைகள்' },
-              { en: 'Fever management', ta: 'காய்ச்சல் மேலாண்மை' },
-            ].map((item, index) => (
-              <div 
-                key={index}
-                className="p-3 rounded-lg hover:bg-gray-800 cursor-pointer text-sm text-gray-300 truncate transition-colors"
-                onClick={() => handleSuggestionClick(i18n.language === 'en' ? item.en : item.ta)}
-              >
-                <MessageCircle className="w-4 h-4 inline mr-2" />
-                {i18n.language === 'en' ? item.en : item.ta}
+            {conversations.length === 0 ? (
+              <div className="text-center text-gray-500 text-sm p-4">
+                {i18n.language === 'en' ? 'No conversations yet' : 'இதுவரை உரையாடல்கள் இல்லை'}
               </div>
-            ))}
+            ) : (
+              conversations.map((conversation) => (
+                <div 
+                  key={conversation.id}
+                  className={`group p-3 rounded-lg cursor-pointer text-sm transition-colors flex items-center justify-between ${
+                    conversation.id === currentConversationId
+                      ? 'bg-gray-800 text-white'
+                      : 'text-gray-300 hover:bg-gray-800'
+                  }`}
+                  onClick={() => loadConversation(conversation.id)}
+                >
+                  <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{conversation.title}</span>
+                  </div>
+                  <button
+                    onClick={(e) => deleteConversation(conversation.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600 rounded transition-opacity flex-shrink-0"
+                    title={i18n.language === 'en' ? 'Delete' : 'நீக்கு'}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -404,6 +835,15 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
             {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </Button>
+          <Button
+            onClick={toggleVoiceOutput}
+            className="w-full bg-transparent hover:bg-gray-800 text-white justify-start rounded-md"
+          >
+            {voiceEnabled ? <Volume2 className="w-4 h-4 mr-2" /> : <VolumeX className="w-4 h-4 mr-2" />}
+            {i18n.language === 'en' 
+              ? (voiceEnabled ? 'Voice On' : 'Voice Off')
+              : (voiceEnabled ? 'குரல் இயக்கம்' : 'குரல் முடக்கம்')}
           </Button>
         </div>
       </div>
@@ -536,9 +976,20 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
                               </ReactMarkdown>
                             </div>
                           ) : (
-                            <p className="text-gray-900 dark:text-gray-100 leading-7">
-                              {message.content}
-                            </p>
+                            <div>
+                              {message.imageUrl && (
+                                <div className="mb-3">
+                                  <img 
+                                    src={message.imageUrl} 
+                                    alt="Uploaded medical image" 
+                                    className="max-w-sm rounded-lg border border-gray-300 dark:border-gray-600"
+                                  />
+                                </div>
+                              )}
+                              <p className="text-gray-900 dark:text-gray-100 leading-7">
+                                {message.content}
+                              </p>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -580,7 +1031,31 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
         {/* Input Area - Fixed at bottom */}
         <div className="flex-shrink-0 bg-gradient-to-t from-white dark:from-gray-900 via-white dark:via-gray-900 to-transparent pt-6">
           <div className="max-w-3xl mx-auto px-6 pb-6">
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="mb-3 relative inline-block">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="max-w-xs max-h-40 rounded-lg border border-gray-300 dark:border-gray-600"
+                />
+                <button
+                  onClick={handleRemoveImage}
+                  className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            
             <div className="relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -591,6 +1066,26 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
                 <Button
+                  onClick={toggleVoiceInput}
+                  disabled={isLoading}
+                  className={`w-8 h-8 p-0 rounded-lg transition-colors ${
+                    isListening 
+                      ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                  title={i18n.language === 'en' ? "Voice input" : "குரல் உள்ளீடு"}
+                >
+                  {isListening ? <MicOff className="h-4 w-4 text-white" /> : <Mic className="h-4 w-4 text-white" />}
+                </Button>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="w-8 h-8 p-0 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  title={i18n.language === 'en' ? "Upload image" : "படத்தை பதிவேற்றவும்"}
+                >
+                  <ImagePlus className="h-4 w-4 text-white" />
+                </Button>
+                <Button
                   onClick={() => handleSendMessage(i18n.language === 'en' ? "Find nearby clinics and hospitals" : "அருகிலுள்ள கிளினிக்குகள் மற்றும் மருத்துவமனைகளைக் கண்டறியவும்")}
                   disabled={isLoading}
                   className="w-8 h-8 p-0 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
@@ -600,7 +1095,7 @@ Please respond in ${i18n.language === 'en' ? 'English' : 'Tamil'} language. Keep
                 </Button>
                 <Button
                   onClick={() => handleSendMessage()}
-                  disabled={!inputMessage.trim() || isLoading}
+                  disabled={(!inputMessage.trim() && !selectedImage) || isLoading}
                   className="w-8 h-8 p-0 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   {isLoading ? (

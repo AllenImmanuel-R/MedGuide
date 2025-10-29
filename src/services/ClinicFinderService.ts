@@ -88,7 +88,7 @@ class ClinicFinderService {
   ];
   private currentApiIndex = 0;
   private cache: Map<string, { data: Clinic[], timestamp: number }> = new Map();
-  private cacheTimeout = 10 * 60 * 1000; // 10 minutes
+  private cacheTimeout = 5 * 60 * 1000; // 5 minutes for faster cache refresh
 
   constructor(locationService: LocationService) {
     this.locationService = locationService;
@@ -108,14 +108,14 @@ class ClinicFinderService {
       amenityFilter = `[amenity~"^(hospital|clinic|doctors)$"]`;
     }
     
-    // Simplified query with shorter timeout to avoid gateway timeouts
+    // Optimized query with shorter timeout and limit for faster response
     return `
-      [out:json][timeout:15];
+      [out:json][timeout:8][maxsize:1073741824];
       (
         node${amenityFilter}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
         way${amenityFilter}(${bbox.south},${bbox.west},${bbox.north},${bbox.east});
       );
-      out center;
+      out center 20;
     `;
   }
   
@@ -147,7 +147,7 @@ class ClinicFinderService {
       
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout for faster response
         
         const response = await fetch(apiUrl, {
           method: 'POST',

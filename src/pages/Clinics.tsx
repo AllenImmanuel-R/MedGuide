@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { MapPin, Search, AlertTriangle, Loader2, Target, Phone, Star, Clock } from "lucide-react";
+import { MapPin, Search, AlertTriangle, Loader2, Target, Phone, Star, Clock, Map as MapIcon, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 // Import our real clinic services and components
 import { clinicFinderService, locationService } from '@/services/clinicServices';
 import LiveLocationTracker from '@/components/LiveLocationTracker';
+import ClinicMap from '@/components/ClinicMap';
 import { useLiveLocation } from '@/hooks/useLiveLocation';
 import type { Clinic, ClinicSearchOptions, MedicalSpecialization, UserLocation, LocationError } from '@/services/clinicServices';
 
@@ -44,6 +45,9 @@ const Clinics = () => {
     hasLocationPermission: false
   });
 
+  // View mode state
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  
   // Live location tracking
   const [autoStarted, setAutoStarted] = useState(false);
   
@@ -122,7 +126,7 @@ const Clinics = () => {
   }, [autoStarted, i18n.language, toast]);
   
   // Search filters
-  const [maxDistance, setMaxDistance] = useState(5); // km
+  const [maxDistance, setMaxDistance] = useState(10); // km
   const [minRating, setMinRating] = useState(0); // minimum rating filter
   const [sortBy, setSortBy] = useState<'distance' | 'rating' | 'name'>('distance');
   
@@ -302,7 +306,31 @@ const Clinics = () => {
       };
       
       console.log(`🔍 Searching clinics (attempt ${retryCount + 1})...`);
+      
+      // Set a timeout to show demo data if search takes too long
+      const timeoutId = setTimeout(() => {
+        if (searchState.isLoading) {
+          const fallbackClinics = generateFallbackClinics(searchState.userLocation!);
+          setSearchState(prev => ({
+            ...prev,
+            clinics: fallbackClinics,
+            isLoading: false,
+            error: null
+          }));
+          
+          toast({
+            title: i18n.language === 'en' ? 'Demo Data Loaded' : 'டெமோ தரவு ஏற்றப்பட்டது',
+            description: i18n.language === 'en'
+              ? 'Search is taking too long. Showing demo clinics for now.'
+              : 'தேடல் நீண்ட நேரம் எடுக்கிறது. இப்போது டெமோ கிளினிக்குகளைக் காட்டுகிறது.',
+            variant: 'default',
+          });
+        }
+      }, 8000); // 8 second timeout
+      
       const clinics = await clinicFinderService.findNearbyClinics(searchOptions);
+      
+      clearTimeout(timeoutId);
       
       setSearchState(prev => ({
         ...prev,
@@ -340,12 +368,12 @@ const Clinics = () => {
         
         setTimeout(() => {
           searchNearbyClinics(retryCount + 1);
-        }, (retryCount + 1) * 2000);
+        }, 1000); // Faster retry
         return;
       }
       
-      // If all retries failed, offer fallback demo data
-      if (retryCount >= 2 || errorMessage.includes('All Overpass API servers failed')) {
+      // If all retries failed, offer fallback demo data immediately
+      if (retryCount >= 1 || errorMessage.includes('All Overpass API servers failed') || errorMessage.includes('timeout')) {
         const fallbackClinics = generateFallbackClinics(searchState.userLocation!);
         
         setSearchState(prev => ({

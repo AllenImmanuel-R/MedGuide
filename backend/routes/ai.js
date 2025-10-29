@@ -59,16 +59,18 @@ router.post('/analyze', async (req, res) => {
 router.post('/chat', async (req, res) => {
   try {
     const { message, context } = req.body;
+    const imageData = context?.imageData;
 
-    if (!message) {
+    if (!message && !imageData) {
       return res.status(400).json({
         success: false,
-        message: 'Message is required'
+        message: 'Message or image is required'
       });
     }
 
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "models/gemini-pro" });
+    // Get the generative model (use gemini-2.5-flash for best performance)
+    const modelName = "models/gemini-2.5-flash";
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     // Create health-focused prompt
     const language = context?.language || 'en';
@@ -82,7 +84,8 @@ Guidelines:
 - Be empathetic and supportive
 - Suggest when to seek professional medical help
 - Keep responses informative but concise
-- Respond in ${language === 'en' ? 'English' : 'Tamil'} language
+- IMPORTANT: Respond in the SAME language as the user's question. The user is asking in ${language === 'en' ? 'English' : 'Tamil (தமிழ்)'}, so you MUST respond ENTIRELY in ${language === 'en' ? 'English' : 'Tamil'}.
+${imageData ? '- Analyze the medical image provided and give detailed insights\n- Identify any visible conditions, symptoms, or abnormalities\n- Provide recommendations based on the image analysis' : ''}
 
 `;
 
@@ -95,12 +98,31 @@ Guidelines:
       prompt += "\n";
     }
 
-    prompt += `Current user message: ${message}
-
-Please provide a helpful response:`;
+    if (message) {
+      prompt += `Current user message: ${message}\n`;
+    }
+    
+    if (imageData) {
+      prompt += `\nThe user has shared a medical image. Please analyze it carefully and provide detailed health insights.`;
+    }
+    
+    prompt += `\n\nPlease provide a helpful response:`;
 
     // Generate response
-    const result = await model.generateContent(prompt);
+    let result;
+    if (imageData) {
+      // For images, include the image data
+      const imagePart = {
+        inlineData: {
+          data: imageData.split(',')[1], // Remove data:image/...;base64, prefix
+          mimeType: imageData.split(';')[0].split(':')[1]
+        }
+      };
+      result = await model.generateContent([prompt, imagePart]);
+    } else {
+      result = await model.generateContent(prompt);
+    }
+    
     const aiResponse = await result.response;
     const responseText = aiResponse.text();
 
